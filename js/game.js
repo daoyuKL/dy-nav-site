@@ -152,21 +152,28 @@
     if (!isDrawer || !started) return;
     drawing = true;
     last = { x, y };
+    lastSend = 0;
   }
 
+  let lastSend = 0; // 笔画网络发送节流(本地绘制即时,发送限速防卡顿)
   function moveStroke(x, y) {
     if (!drawing || !isDrawer || !started) return;
     const p = { x, y };
     drawLine(last.x, last.y, p.x, p.y, curColor, curSize);
-    send({
-      t: "draw",
-      x1: Math.round(last.x * 10) / 10,
-      y1: Math.round(last.y * 10) / 10,
-      x2: Math.round(p.x * 10) / 10,
-      y2: Math.round(p.y * 10) / 10,
-      c: curColor,
-      w: curSize,
-    });
+    // 30ms 节流:合并发送,减少网络消息量(多人时防卡顿)
+    const now = Date.now();
+    if (now - lastSend >= 30) {
+      lastSend = now;
+      send({
+        t: "draw",
+        x1: Math.round(last.x * 10) / 10,
+        y1: Math.round(last.y * 10) / 10,
+        x2: Math.round(p.x * 10) / 10,
+        y2: Math.round(p.y * 10) / 10,
+        c: curColor,
+        w: curSize,
+      });
+    }
     last = p;
   }
 

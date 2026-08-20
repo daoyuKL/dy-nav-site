@@ -95,6 +95,8 @@ class WSConn {
     this.socket = socket;
     this.buf = Buffer.alloc(0);
     this.player = null; // 绑定的玩家对象
+    // 关闭 Nagle 算法:实时游戏小消息需立即发送,否则合并延迟导致卡顿
+    try { socket.setNoDelay(true); } catch (e) { /* 忽略 */ }
     socket.on("data", (d) => this.onData(d));
     socket.on("close", () => onDisconnect(this));
     socket.on("error", () => {});
