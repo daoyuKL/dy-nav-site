@@ -15,6 +15,7 @@
   const lobbyStatus = document.getElementById("wl-lobby-status");
   const infoEl = document.getElementById("wl-info");
   const startBtn = document.getElementById("wl-start-btn");
+  const botBtn = document.getElementById("wl-bot-btn");
   const countEl = document.getElementById("wl-count");
   const playerListEl = document.getElementById("wl-player-list");
   const roleCard = document.getElementById("wl-role-card");
@@ -93,17 +94,23 @@
         const me = p.id === myId ? " (我)" : "";
         const crown = p.id === ownerId ? " 👑" : "";
         const dead = p.alive ? "" : " 💀";
+        const botTag = p.bot ? " 🤖" : "";
+        const rmBtn = p.bot && myId === ownerId
+          ? `<button class="gp-bot-remove" data-id="${p.id}" title="移除人机">✕</button>`
+          : "";
         return `
         <div class="game-player${p.id === myId ? " me" : ""}${p.alive ? "" : " wl-dead"}">
           ${av}
-          <span class="gp-name">${esc(p.name)}${me}${crown}${dead}</span>
+          <span class="gp-name">${esc(p.name)}${me}${crown}${dead}${botTag}</span>
+          ${rmBtn}
         </div>`;
       })
       .join("");
   }
 
-  /* —— 开始按钮:仅房主可用 —— */
+  /* —— 开始按钮:仅房主可用;添加人机按钮:仅房主且在大厅可见 —— */
   function updateStartBtn() {
+    if (botBtn) botBtn.style.display = roomPhase === "lobby" && myId && myId === ownerId ? "" : "none";
     if (!startBtn) return;
     if (roomPhase !== "lobby") {
       startBtn.style.display = "none";
@@ -323,6 +330,12 @@
 
   /* —— 开始/再来一局 —— */
   if (startBtn) startBtn.addEventListener("click", () => send({ t: "start" }));
+  if (botBtn) botBtn.addEventListener("click", () => send({ t: "addbot", n: 1 }));
+  // 移除人机(仅房主可见按钮)
+  playerListEl.addEventListener("click", (e) => {
+    const b = e.target.closest(".gp-bot-remove");
+    if (b) send({ t: "removebot", id: b.dataset.id });
+  });
   if (restartBtn) restartBtn.addEventListener("click", () => {
     overOverlay.style.display = "none";
     myRole = null;

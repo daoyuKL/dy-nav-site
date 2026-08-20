@@ -139,7 +139,7 @@ function aliveList() { return room.players.filter((p) => p.alive); }
 function wolves() { return room.players.filter((p) => p.alive && p.role === "wolf"); }
 
 function publicPlayers() {
-  return room.players.map((p) => ({ id: p.id, name: p.name, qq: p.qq || "", alive: p.alive, score: 0 }));
+  return room.players.map((p) => ({ id: p.id, name: p.name, qq: p.qq || "", alive: p.alive, score: 0, bot: !!p.bot }));
 }
 
 function broadcast(obj, excludeId) {
@@ -163,6 +163,7 @@ function clearTimer() {
 function setPhase(phase, extra) {
   room.phase = phase;
   broadcast({ t: "phase", phase, seconds: SECONDS[phase] || 0, night: room.nightNo, ...extra });
+  scheduleBotActions(phase); // 人机开始行动
 }
 
 /* ==========================================================================
@@ -356,6 +357,192 @@ function gameOver(winner) {
 }
 
 /* ==========================================================================
+   人机(Bot):房主可添加,用于凑人数陪玩
+   ========================================================================== */
+const BOT_NAMES = ["小狼崽", "预言家二号", "女巫大人", "猎人老张", "村口老王", "隔壁小李", "小红帽", "大聪明", "糊涂蛋", "潜水员", "气氛组", "吃瓜群众"];
+const BOT_WW_CHATS = [
+  "我怀疑 {p} 有问题👀", "我是好人,别投我", "大家来分析一下",
+  "昨晚我听到点动静", "{p} 怎么不说话?", "跟着感觉走,投 {p}",
+  "我投完票了", "这局有点意思", "先别急着投,再聊聊", "预言家出来带带队",
+];
+
+function makeBotConn() {
+  return {
+    player: null,
+    send() {},
+    socket: { write() {}, destroyed: false },
+  };
+}
+
+function makeBotName() {
+  const base = BOT_NAMES[room.players.filter((p) => p.bot).length % BOT_NAMES.length];
+  return room.players.some((p) => p.name === base) ? base + (room.players.length + 1) : base;
+}
+
+/* 添加 n 个人机(房主专用,仅大厅可加;返回实际添加数量) */
+function addBots(n) {
+  if (room.phase !== "lobby") return 0;
+  const count = Math.max(0, Math.min(n, MAX_PLAYERS - room.players.length));
+  for (let i = 0; i < count; i++) {
+    room.players.push({
+      conn: makeBotConn(),
+      id: crypto.randomBytes(6).toString("hex"),
+      name: makeBotName(),
+      qq: "",
+      role: null,
+      alive: true,
+      bot: true,
+    });
+  }
+  if (!count) return 0;
+  broadcast({ t: "players", players: publicPlayers(), ownerId: room.ownerId });
+  room.players.filter((p) => p.bot).slice(-count).forEach((b) => {
+    broadcast({ t: "system", text: "🤖 " + b.name + " 加入了房间(人机)" });
+  });
+  return count;
+}
+
+/* 移除玩家(真人掉线 / 房主移除人机共用) */
+function removePlayer(id) {
+  const idx = room.players.findIndex((x) => x.id === id);
+  if (idx < 0) return;
+  const removed = room.players[idx];
+  room.players.splice(idx, 1);
+  // 房主离开:转让给剩余第一个玩家
+  if (room.ownerId === removed.id) {
+    room.ownerId = room.players.length ? room.players[0].id : null;
+    if (room.ownerId) broadcast({ t: "system", text: "房主已转让给 " + byId(room.ownerId).name });
+  }
+  // 没有真人玩家时,人机全部离场,房间重置回大厅
+  if (room.players.length && room.players.every((x) => x.bot)) {
+    room.players = [];
+    room.ownerId = null;
+    clearTimer();
+    room.phase = "lobby";
+    room.lastDeaths = [];
+  }
+  broadcast({ t: "players", players: publicPlayers(), ownerId: room.ownerId });
+  broadcast({ t: "system", text: removed.name + " 离开了房间" + (removed.bot ? "(人机)" : "") });
+  if (room.phase !== "lobby" && room.phase !== "over") {
+    if (checkGameOver()) return;
+  }
+}
+
+/* 人机行动:每个阶段延迟随机秒数后自动操作(与真人走同一套结算逻辑) */
+function botAct(act, bot) {
+  if (!byId(bot.id) || !bot.alive) return;
+  const others = aliveList().filter((p) => p.id !== bot.id);
+  if (!others.length) return;
+
+  if (act === "kill") {
+    if (room.phase !== "kill" || bot.role !== "wolf" || room.wolfVotes[bot.id]) return;
+    // 优先刀特殊身份(预言家/女巫/猎人),其次随机
+    const special = others.filter((p) => p.role !== "villager" && p.role !== "wolf");
+    const pool = special.length && Math.random() < 0.6 ? special : others.filter((p) => p.role !== "wolf");
+    if (!pool.length) return;
+    const t = pool[Math.floor(Math.random() * pool.length)];
+    room.wolfVotes[bot.id] = t.id;
+    sendTo(bot.id, { t: "action-ok", act: "kill", target: t.id });
+    if (wolves().every((w) => room.wolfVotes[w.id])) { clearTimer(); afterKill(); }
+    return;
+  }
+
+  if (act === "seer") {
+    if (room.phase !== "seer" || room.seerUsed) return;
+    room.seerUsed = true;
+    const t = others[Math.floor(Math.random() * others.length)];
+    sendTo(bot.id, { t: "seer-result", name: t.name, role: t.role === "wolf" ? "狼人" : "好人" });
+    clearTimer();
+    afterSeer();
+    return;
+  }
+
+  if (act === "witch") {
+    if (room.phase !== "witch" || room.witchUsedTonight) return;
+    // 有刀口时大概率用解药救人,小概率用毒药;都不用则等倒计时结束
+    if (room.witchHasSave && room.killedTonight && Math.random() < 0.55) {
+      room.witchHasSave = false;
+      room.witchUsedTonight = true;
+      room.saveTarget = room.killedTonight;
+      sendTo(bot.id, { t: "action-ok", act: "save", target: room.killedTonight });
+      clearTimer();
+      afterWitch();
+      return;
+    }
+    if (room.witchHasPoison && Math.random() < 0.35) {
+      const t = others[Math.floor(Math.random() * others.length)];
+      room.witchHasPoison = false;
+      room.witchUsedTonight = true;
+      room.poisonTarget = t.id;
+      sendTo(bot.id, { t: "action-ok", act: "poison", target: t.id });
+      clearTimer();
+      afterWitch();
+      return;
+    }
+    return;
+  }
+
+  if (act === "shoot") {
+    if (room.phase !== "shoot" || bot.shot) return;
+    if (Math.random() < 0.7) {
+      const t = others[Math.floor(Math.random() * others.length)];
+      bot.shot = true;
+      room.hunterShots[bot.id] = t.id;
+      sendTo(bot.id, { t: "action-ok", act: "shoot", target: t.id });
+      clearTimer();
+      afterShoot();
+    }
+    return;
+  }
+
+  if (act === "vote") {
+    if (room.phase !== "vote" || room.votes[bot.id]) return;
+    const t = others[Math.floor(Math.random() * others.length)];
+    room.votes[bot.id] = t.id;
+    sendTo(bot.id, { t: "action-ok", act: "vote", target: t.id });
+    if (aliveList().every((x) => room.votes[x.id])) { clearTimer(); afterVote(); }
+    return;
+  }
+}
+
+/* 人机讨论发言 */
+function botChat(bot) {
+  if (!byId(bot.id) || !bot.alive || room.phase !== "discuss") return;
+  const humans = aliveList().filter((p) => p.id !== bot.id && !p.bot);
+  let text = BOT_WW_CHATS[Math.floor(Math.random() * BOT_WW_CHATS.length)];
+  const name = humans.length ? humans[Math.floor(Math.random() * humans.length)].name : "某人";
+  broadcast({ t: "chat", name: bot.name, text: text.replace(/\{p\}/g, name) });
+}
+
+/* 阶段切换时安排对应的人机行动 */
+function scheduleBotActions(phase) {
+  const bots = room.players.filter((p) => p.bot);
+  if (!bots.length) return;
+  if (phase === "kill") {
+    bots.filter((p) => p.alive && p.role === "wolf").forEach((b) => {
+      setTimeout(() => botAct("kill", b), 1500 + Math.random() * 4000);
+    });
+  } else if (phase === "seer") {
+    const b = bots.find((p) => p.alive && p.role === "seer");
+    if (b) setTimeout(() => botAct("seer", b), 1500 + Math.random() * 3500);
+  } else if (phase === "witch") {
+    const b = bots.find((p) => p.alive && p.role === "witch");
+    if (b) setTimeout(() => botAct("witch", b), 1500 + Math.random() * 4000);
+  } else if (phase === "shoot") {
+    const b = bots.find((p) => p.alive && p.role === "hunter");
+    if (b) setTimeout(() => botAct("shoot", b), 1500 + Math.random() * 3000);
+  } else if (phase === "vote") {
+    bots.filter((p) => p.alive).forEach((b) => {
+      setTimeout(() => botAct("vote", b), 2000 + Math.random() * 6000);
+    });
+  } else if (phase === "discuss") {
+    bots.filter((p) => p.alive).forEach((b) => {
+      if (Math.random() < 0.7) setTimeout(() => botChat(b), 2000 + Math.random() * 10000);
+    });
+  }
+}
+
+/* ==========================================================================
    消息处理
    ========================================================================== */
 
@@ -490,6 +677,28 @@ function handleMessage(conn, raw) {
       return;
     }
 
+    /* —— 添加人机(仅房主,仅大厅) —— */
+    case "addbot": {
+      if (!p) return;
+      if (p.id !== room.ownerId) { conn.send({ t: "system", text: "只有房主可以添加人机" }); return; }
+      if (room.phase !== "lobby") { conn.send({ t: "system", text: "游戏进行中,无法添加人机" }); return; }
+      const n = Math.min(Math.max(parseInt(msg.n, 10) || 1, 1), 8);
+      if (!addBots(n)) conn.send({ t: "system", text: "房间已满,无法添加人机" });
+      return;
+    }
+
+    /* —— 移除人机(仅房主) —— */
+    case "removebot": {
+      if (!p || p.id !== room.ownerId) return;
+      if (msg.all) {
+        room.players.filter((x) => x.bot).slice().forEach((b) => removePlayer(b.id));
+        return;
+      }
+      const t = byId(String(msg.id || ""));
+      if (t && t.bot) removePlayer(t.id);
+      return;
+    }
+
     /* —— 聊天:白天公共,夜晚狼人阶段仅狼人可互相讨论 —— */
     case "chat": {
       if (!p) return;
@@ -512,23 +721,9 @@ function handleMessage(conn, raw) {
 }
 
 function onDisconnect(conn) {
-  const idx = room.players.findIndex((x) => x.conn === conn);
-  if (idx < 0) return;
-  const removedId = room.players[idx].id;
-  const name = room.players[idx].name;
-  room.players.splice(idx, 1);
-  // 房主离开:转让给剩余第一个玩家
-  if (room.ownerId === removedId) {
-    room.ownerId = room.players.length ? room.players[0].id : null;
-    if (room.ownerId) {
-      broadcast({ t: "system", text: "房主已转让给 " + byId(room.ownerId).name });
-    }
-  }
-  broadcast({ t: "players", players: publicPlayers(), ownerId: room.ownerId });
-  broadcast({ t: "system", text: name + " 离开了房间" });
-  if (room.phase !== "lobby" && room.phase !== "over") {
-    if (checkGameOver()) return;
-  }
+  const p = byConn(conn);
+  if (!p) return;
+  removePlayer(p.id);
 }
 
 /* ==========================================================================

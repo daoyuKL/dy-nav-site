@@ -20,6 +20,7 @@
   const lobbyStatus = document.getElementById("game-lobby-status");
   const infoEl = document.getElementById("game-info");
   const startBtn = document.getElementById("game-start-btn");
+  const botBtn = document.getElementById("game-bot-btn");
   const countEl = document.getElementById("game-count");
   const playerListEl = document.getElementById("game-player-list");
   const guessInput = document.getElementById("game-guess");
@@ -97,21 +98,27 @@
         const me = p.id === myId ? " (我)" : "";
         const role = p.id === myId && isDrawer ? " 🎨" : "";
         const crown = p.id === ownerId ? " 👑" : "";
+        const botTag = p.bot ? " 🤖" : "";
+        const rmBtn = p.bot && myId === ownerId
+          ? `<button class="gp-bot-remove" data-id="${p.id}" title="移除人机">✕</button>`
+          : "";
         const av = p.qq
           ? `<img class="gp-avatar" src="${(window.Account && window.Account.avatarUrl) ? window.Account.avatarUrl(p.qq) : "https://q1.qlogo.cn/g?b=qq&nk=" + p.qq + "&s=100"}" alt="" onerror="this.remove()" />`
           : `<span class="gp-avatar">${esc(p.name.charAt(0))}</span>`;
         return `
         <div class="game-player${p.id === myId ? " me" : ""}">
           ${av}
-          <span class="gp-name">${esc(p.name)}${me}${crown}${role}</span>
+          <span class="gp-name">${esc(p.name)}${me}${crown}${role}${botTag}</span>
+          ${rmBtn}
           <span class="gp-score">${p.score} 分</span>
         </div>`;
       })
       .join("");
   }
 
-  /* —— 开始按钮:仅房主可用 —— */
+  /* —— 开始按钮:仅房主可用;添加人机按钮:仅房主且未开局可见 —— */
   function updateStartBtn() {
+    if (botBtn) botBtn.style.display = !started && myId && myId === ownerId ? "" : "none";
     if (!startBtn) return;
     if (started) {
       startBtn.style.display = "none";
@@ -295,6 +302,12 @@
 
   /* —— 开始/再来一局 —— */
   if (startBtn) startBtn.addEventListener("click", () => send({ t: "start" }));
+  if (botBtn) botBtn.addEventListener("click", () => send({ t: "addbot", n: 1 }));
+  // 移除人机(仅房主可见按钮)
+  playerListEl.addEventListener("click", (e) => {
+    const b = e.target.closest(".gp-bot-remove");
+    if (b) send({ t: "removebot", id: b.dataset.id });
+  });
   if (restartBtn) restartBtn.addEventListener("click", () => {
     overOverlay.style.display = "none";
     send({ t: "restart" });

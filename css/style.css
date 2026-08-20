@@ -2309,3 +2309,50 @@ img { max-width: 100%; display: block; }
 .wl-dead {
   opacity: 0.5;
 }
+
+/* ==========================================================================
+   人机(Bot)按钮
+   ========================================================================== */
+.game-top-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-bot-btn {
+  padding: 9px 18px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #8b5cf6, #d946ef);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: opacity var(--transition), transform var(--transition);
+}
+
+.game-bot-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.gp-bot-remove {
+  flex-shrink: 0;
+  margin-left: 4px;
+  padding: 0 7px;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--danger);
+  background: transparent;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity var(--transition), background var(--transition), color var(--transition);
+}
+
+.gp-bot-remove:hover {
+  opacity: 1;
+  background: var(--danger);
+  color: #fff;
+}

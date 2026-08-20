@@ -156,7 +156,7 @@ function byId(id) { return room.players.find((p) => p.id === id) || null; }
 function isDrawer(conn) { return byConn(conn) && byConn(conn).id === room.drawerId; }
 
 function publicPlayers() {
-  return room.players.map((p) => ({ id: p.id, name: p.name, score: p.score, qq: p.qq || "" }));
+  return room.players.map((p) => ({ id: p.id, name: p.name, score: p.score, qq: p.qq || "", bot: !!p.bot }));
 }
 
 function broadcast(obj, excludeId) {
@@ -235,6 +235,159 @@ function endGame() {
     .sort((a, b) => b.score - a.score)
     .map((p) => ({ name: p.name, score: p.score }));
   broadcast({ t: "over", ranking });
+}
+
+/* ==========================================================================
+   人机(Bot):房主可添加,用于凑人数陪玩
+   ========================================================================== */
+const BOT_NAMES = ["小机灵", "画渣一号", "AI画手", "神秘人", "路小雨", "萌新小白", "老画师", "猜词王", "夜猫子", "小太阳", "摸鱼大师", "快乐星球"];
+const BOT_CHATS = ["这画的是啥呀🤔", "我好像猜到了!", "哈哈 好抽象", "有点难啊", "画师加油🎨", "再画两笔呗", "我蒙一个", "这题我熟", "偷偷记笔记📝", "下一题下一题"];
+const DRAW_COLORS = ["#e74c3c", "#f39c12", "#2ecc71", "#3498db", "#9b59b6", "#000000"];
+
+/* 人机的"假连接":广播写入、发送消息全部忽略,行为由 botTick 定时驱动 */
+function makeBotConn() {
+  return {
+    player: null,
+    send() {},
+    socket: { write() {}, destroyed: false },
+  };
+}
+
+function makeBotName() {
+  const base = BOT_NAMES[room.players.filter((p) => p.bot).length % BOT_NAMES.length];
+  return room.players.some((p) => p.name === base) ? base + (room.players.length + 1) : base;
+}
+
+/* 人机当画师:随机颜色/粗细,画一段涂鸦 */
+function botDraw(bot) {
+  let x = 40 + Math.random() * 720;
+  let y = 40 + Math.random() * 420;
+  const c = DRAW_COLORS[Math.floor(Math.random() * DRAW_COLORS.length)];
+  const w = Math.round(3 + Math.random() * 17);
+  const segs = 2 + Math.floor(Math.random() * 4);
+  for (let i = 0; i < segs; i++) {
+    const nx = Math.min(790, Math.max(10, x + (Math.random() - 0.5) * 260));
+    const ny = Math.min(490, Math.max(10, y + (Math.random() - 0.5) * 260));
+    broadcast({
+      t: "draw",
+      x1: Math.round(x * 10) / 10, y1: Math.round(y * 10) / 10,
+      x2: Math.round(nx * 10) / 10, y2: Math.round(ny * 10) / 10,
+      c, w,
+    });
+    x = nx; y = ny;
+  }
+}
+
+/* 人机猜词:猜中概率随时间上升(开局 ~5%,60 秒时 ~40%),偶尔蒙个错的活跃气氛 */
+function botGuess(bot) {
+  const elapsed = ROUND_SECONDS - room.secondsLeft;
+  const pCorrect = Math.min(0.05 + elapsed * 0.006, 0.5);
+  if (Math.random() < pCorrect) {
+    applyGuess(bot, room.word);
+  } else if (Math.random() < 0.5) {
+    let w = room.word;
+    while (w === room.word) w = WORDS[Math.floor(Math.random() * WORDS.length)];
+    applyGuess(bot, w);
+  }
+}
+
+/* 人机心跳:游戏中每 2~3.5 秒行动一次 */
+function botTick(bot) {
+  if (!room.started) return;
+  if (bot.id === room.drawerId) {
+    botDraw(bot);
+  } else if (!room.roundOver) {
+    botGuess(bot);
+  }
+  if (Math.random() < 0.05) {
+    broadcast({ t: "chat", name: bot.name, text: BOT_CHATS[Math.floor(Math.random() * BOT_CHATS.length)] });
+  }
+}
+
+/* 猜词结算(返回是否猜对),真人/人机共用 */
+function applyGuess(p, text) {
+  if (room.roundOver) return false; // 本轮已结算,防多人同时猜对跳轮
+  if (text === room.word || text.replace(/\s+/g, "") === room.word) {
+    room.roundOver = true; // 锁定结算,后续猜对不再触发下一轮
+    p.score += 10;
+    const drawer = byId(room.drawerId);
+    if (drawer) drawer.score += 5;
+    clearTimer();
+    broadcast({
+      t: "result",
+      ok: true,
+      name: p.name,
+      answer: room.word,
+      scores: publicPlayers(),
+      drawer: room.drawerId,
+    });
+    setTimeout(() => { room.roundOver = false; nextRound(); }, 3500);
+    return true;
+  }
+  return false;
+}
+
+/* 添加 n 个人机(房主专用,未开局时;返回实际添加数量) */
+function addBots(n) {
+  if (room.started) return 0;
+  const count = Math.max(0, Math.min(n, MAX_PLAYERS - room.players.length));
+  for (let i = 0; i < count; i++) {
+    const bot = {
+      conn: makeBotConn(),
+      id: crypto.randomBytes(6).toString("hex"),
+      name: makeBotName(),
+      score: 0,
+      qq: "",
+      bot: true,
+      _timer: setInterval(() => botTick(bot), 2000 + Math.random() * 1500),
+    };
+    room.players.push(bot);
+  }
+  if (!count) return 0;
+  broadcast({ t: "players", players: publicPlayers(), started: room.started, min: MIN_PLAYERS, ownerId: room.ownerId });
+  room.players.filter((p) => p.bot).slice(-count).forEach((b) => {
+    broadcast({ t: "chat", name: "系统", text: "🤖 " + b.name + " 加入了房间(人机)" });
+  });
+  return count;
+}
+
+/* 移除玩家(真人掉线 / 房主移除人机共用),处理房主转让与画师离开 */
+function removePlayer(id) {
+  const idx = room.players.findIndex((x) => x.id === id);
+  if (idx < 0) return;
+  const pl = room.players[idx];
+  const wasDrawer = pl.id === room.drawerId;
+  const wasOwner = pl.id === room.ownerId;
+  if (pl.bot && pl._timer) clearInterval(pl._timer);
+  room.players.splice(idx, 1);
+  // 房主离开:把房主转让给剩余第一个玩家
+  if (wasOwner) {
+    room.ownerId = room.players.length ? room.players[0].id : null;
+    if (room.ownerId) {
+      broadcast({ t: "chat", name: "系统", text: "房主已转让给 " + byId(room.ownerId).name });
+    }
+  }
+  // 没有真人玩家时,人机全部离场
+  if (room.players.length && room.players.every((x) => x.bot)) {
+    room.players.forEach((b) => { if (b._timer) clearInterval(b._timer); });
+    room.players = [];
+    room.ownerId = null;
+  }
+  broadcast({ t: "players", players: publicPlayers(), started: room.started, min: MIN_PLAYERS, ownerId: room.ownerId });
+  broadcast({ t: "chat", name: "系统", text: pl.name + " 离开了房间" + (pl.bot ? "(人机)" : "") });
+  if (room.started && wasDrawer) {
+    // 画师跑了:跳过当前回合
+    clearTimer();
+    broadcast({ t: "drawer-left" });
+    if (room.players.length >= 2) setTimeout(nextRound, 1500);
+    else { room.started = false; broadcast({ t: "over", ranking: [] }); }
+  }
+  if (room.started && room.players.length < 2) {
+    // 人太少,结束本局
+    clearTimer();
+    room.started = false;
+    broadcast({ t: "over", ranking: [] });
+  }
 }
 
 /* ==========================================================================
@@ -329,27 +482,37 @@ function handleMessage(conn, raw) {
     /* —— 猜词 —— */
     case "guess": {
       if (!p || !room.started || isDrawer(conn)) return;
-      if (room.roundOver) return; // 本轮已结算,防多人同时猜对跳轮
       const text = String(msg.text || "").trim().slice(0, MAX_GUESS);
       if (!text) return;
-      if (text === room.word || text.replace(/\s+/g, "") === room.word) {
-        room.roundOver = true; // 锁定结算,后续猜对不再触发下一轮
-        p.score += 10;
-        const drawer = byId(room.drawerId);
-        if (drawer) drawer.score += 5;
-        clearTimer();
-        broadcast({
-          t: "result",
-          ok: true,
-          name: p.name,
-          answer: room.word,
-          scores: publicPlayers(),
-          drawer: room.drawerId,
-        });
-        setTimeout(() => { room.roundOver = false; nextRound(); }, 3500);
-      } else {
-        conn.send({ t: "result", ok: false });
+      if (!applyGuess(p, text)) conn.send({ t: "result", ok: false });
+      return;
+    }
+
+    /* —— 添加人机(仅房主,未开局时) —— */
+    case "addbot": {
+      if (!p) return;
+      if (p.id !== room.ownerId) {
+        conn.send({ t: "system", text: "只有房主可以添加人机" });
+        return;
       }
+      if (room.started) {
+        conn.send({ t: "system", text: "游戏进行中,无法添加人机" });
+        return;
+      }
+      const n = Math.min(Math.max(parseInt(msg.n, 10) || 1, 1), 8);
+      if (!addBots(n)) conn.send({ t: "system", text: "房间已满,无法添加人机" });
+      return;
+    }
+
+    /* —— 移除人机(仅房主) —— */
+    case "removebot": {
+      if (!p || p.id !== room.ownerId) return;
+      if (msg.all) {
+        room.players.filter((x) => x.bot).slice().forEach((b) => removePlayer(b.id));
+        return;
+      }
+      const t = byId(String(msg.id || ""));
+      if (t && t.bot) removePlayer(t.id);
       return;
     }
 
@@ -372,34 +535,9 @@ function handleMessage(conn, raw) {
    ========================================================================== */
 
 function onDisconnect(conn) {
-  const idx = room.players.findIndex((x) => x.conn === conn);
-  if (idx < 0) return;
-  const wasDrawer = room.players[idx].id === room.drawerId;
-  const wasOwner = room.players[idx].id === room.ownerId;
-  const name = room.players[idx].name;
-  room.players.splice(idx, 1);
-  // 房主离开:把房主转让给剩余第一个玩家
-  if (wasOwner) {
-    room.ownerId = room.players.length ? room.players[0].id : null;
-    if (room.ownerId) {
-      broadcast({ t: "chat", name: "系统", text: "房主已转让给 " + byId(room.ownerId).name });
-    }
-  }
-  broadcast({ t: "players", players: publicPlayers(), started: room.started, min: MIN_PLAYERS, ownerId: room.ownerId });
-  broadcast({ t: "chat", name: "系统", text: name + " 离开了房间" });
-  if (room.started && wasDrawer) {
-    // 画师跑了:跳过当前回合
-    clearTimer();
-    broadcast({ t: "drawer-left" });
-    if (room.players.length >= 2) setTimeout(nextRound, 1500);
-    else { room.started = false; broadcast({ t: "over", ranking: [] }); }
-  }
-  if (room.started && room.players.length < 2) {
-    // 人太少,结束本局
-    clearTimer();
-    room.started = false;
-    broadcast({ t: "over", ranking: [] });
-  }
+  const p = byConn(conn);
+  if (!p) return;
+  removePlayer(p.id);
 }
 
 /* ==========================================================================
