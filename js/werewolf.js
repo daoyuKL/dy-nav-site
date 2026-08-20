@@ -1,114 +1,82 @@
-/* ==========================================================================
-   《DY导航站》狼人杀客户端
-   ==========================================================================
-   功能:WebSocket 实时连接、加入房间、身份揭示、夜晚/白天行动、
-         投票、讨论聊天、胜负结算。6-12 人,单房间。
-   ========================================================================== */
-
 (function () {
   "use strict";
 
-  const lobbyEl = document.getElementById("wl-lobby");
-  const roomEl = document.getElementById("wl-room");
-  const nameInput = document.getElementById("wl-name");
-  const joinBtn = document.getElementById("wl-join-btn");
-  const lobbyStatus = document.getElementById("wl-lobby-status");
-  const infoEl = document.getElementById("wl-info");
-  const startBtn = document.getElementById("wl-start-btn");
-  const botBtn = document.getElementById("wl-bot-btn");
-  const countEl = document.getElementById("wl-count");
-  const playerListEl = document.getElementById("wl-player-list");
-  const roleCard = document.getElementById("wl-role-card");
-  const roleText = document.getElementById("wl-role-text");
-  const stageEl = document.getElementById("wl-stage");
-  const actionEl = document.getElementById("wl-action");
-  const chatInput = document.getElementById("wl-chat");
-  const chatBtn = document.getElementById("wl-chat-btn");
-  const logEl = document.getElementById("wl-log");
-  const overOverlay = document.getElementById("wl-over-overlay");
-  const overTitle = document.getElementById("wl-over-title");
-  const overRoles = document.getElementById("wl-over-roles");
-  const restartBtn = document.getElementById("wl-restart-btn");
-  const overCloseBtn = document.getElementById("wl-over-close");
-
-  if (!lobbyEl) return; // 非狼人杀页面
-
-  let ws = null;
-  let myId = null;
-  let myRole = null;
-  let myName = "";
-  let roomPhase = "lobby";
-  let players = [];
-  let ownerId = null; // 房主(第一个进房间的人)
-  let countdown = 0;
-  let countTimer = null;
-
-  const PHASE_TEXT = {
-    kill: "🌙 夜晚降临,狼人请睁眼",
-    seer: "🔮 预言家请睁眼",
-    witch: "🧪 女巫请睁眼",
-    shoot: "🏹 猎人出局,请开枪",
-    discuss: "☀️ 天亮了,请讨论",
-    vote: "🗳️ 投票时间",
-    over: "🏁 游戏结束",
-    lobby: "等待开始…",
+  var lobbyEl = document.getElementById("wl-lobby");
+  var roomEl = document.getElementById("wl-room");
+  var nameInput = document.getElementById("wl-name");
+  var joinBtn = document.getElementById("wl-join-btn");
+  var lobbyStatus = document.getElementById("wl-lobby-status");
+  var infoEl = document.getElementById("wl-info");
+  var startBtn = document.getElementById("wl-start-btn");
+  var botBtn = document.getElementById("wl-bot-btn");
+  var countEl = document.getElementById("wl-count");
+  var playerListEl = document.getElementById("wl-player-list");
+  var roleCard = document.getElementById("wl-role-card");
+  var roleText = document.getElementById("wl-role-text");
+  var stageEl = document.getElementById("wl-stage");
+  var actionEl = document.getElementById("wl-action");
+  var chatInput = document.getElementById("wl-chat");
+  var chatBtn = document.getElementById("wl-chat-btn");
+  var logEl = document.getElementById("wl-log");
+  var overOverlay = document.getElementById("wl-over-overlay");
+  var overTitle = document.getElementById("wl-over-title");
+  var overRoles = document.getElementById("wl-over-roles");
+  var restartBtn = document.getElementById("wl-restart-btn");
+  var overCloseBtn = document.getElementById("wl-over-close");
+  if (!lobbyEl) return;
+  var ws = null;
+  var myId = null;
+  var myRole = null;
+  var myName = "";
+  var roomPhase = "lobby";
+  var players = [];
+  var ownerId = null;
+  var countdown = 0;
+  var countTimer = null;
+  var PHASE_TEXT = {
+    kill: "\uD83C\uDF19 \u591C\u665A\u964D\u4E34,\u72FC\u4EBA\u8BF7\u7741\u773C",
+    seer: "\uD83D\uDD2E \u9884\u8A00\u5BB6\u8BF7\u7741\u773C",
+    witch: "\uD83E\uDDEA \u5973\u5DEB\u8BF7\u7741\u773C",
+    shoot: "\uD83C\uDFF9 \u730E\u4EBA\u51FA\u5C40,\u8BF7\u5F00\u67AA",
+    discuss: "\u2600\uFE0F \u5929\u4EAE\u4E86,\u8BF7\u8BA8\u8BBA",
+    vote: "\uD83D\uDDF3\uFE0F \u6295\u7968\u65F6\u95F4",
+    over: "\uD83C\uDFC1 \u6E38\u620F\u7ED3\u675F",
+    lobby: "\u7B49\u5F85\u5F00\u59CB\u2026"
   };
-
   function esc(s) {
-    return String(s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
-
   function maskQQ(qq) {
-    const s = String(qq || "");
+    var s = String(qq || "");
     if (s.length <= 5) return s;
     return s.slice(0, 3) + "****" + s.slice(-2);
   }
-
   function avatarUrl(qq) {
     return "https://q1.qlogo.cn/g?b=qq&nk=" + qq + "&s=100";
   }
-
   function send(obj) {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
   }
-
   function log(msg, cls) {
-    const d = document.createElement("div");
+    var d = document.createElement("div");
     d.className = "game-log-item" + (cls ? " " + cls : "");
     d.innerHTML = msg;
     logEl.appendChild(d);
     logEl.scrollTop = logEl.scrollHeight;
     while (logEl.children.length > 100) logEl.removeChild(logEl.firstChild);
   }
-
-  /* —— 玩家列表 —— */
   function renderPlayers() {
     countEl.textContent = players.length;
-    playerListEl.innerHTML = players
-      .map((p) => {
-        const av = p.qq
-          ? `<img class="gp-avatar" src="${avatarUrl(p.qq)}" alt="" onerror="this.remove()" />`
-          : `<span class="gp-avatar">${esc(p.name.charAt(0))}</span>`;
-        const me = p.id === myId ? " (我)" : "";
-        const crown = p.id === ownerId ? " 👑" : "";
-        const dead = p.alive ? "" : " 💀";
-        const botTag = p.bot ? " 🤖" : "";
-        const rmBtn = p.bot && myId === ownerId
-          ? `<button class="gp-bot-remove" data-id="${p.id}" title="移除人机">✕</button>`
-          : "";
-        return `
-        <div class="game-player${p.id === myId ? " me" : ""}${p.alive ? "" : " wl-dead"}">
-          ${av}
-          <span class="gp-name">${esc(p.name)}${me}${crown}${dead}${botTag}</span>
-          ${rmBtn}
-        </div>`;
-      })
-      .join("");
+    playerListEl.innerHTML = players.map(function (p) {
+      var av = p.qq ? '<img class="gp-avatar" src="'.concat(avatarUrl(p.qq), '" alt="" onerror="this.remove()" />') : '<span class="gp-avatar">'.concat(esc(p.name.charAt(0)), "</span>");
+      var me = p.id === myId ? " (\u6211)" : "";
+      var crown = p.id === ownerId ? " \uD83D\uDC51" : "";
+      var dead = p.alive ? "" : " \uD83D\uDC80";
+      var botTag = p.bot ? " \uD83E\uDD16" : "";
+      var rmBtn = p.bot && myId === ownerId ? '<button class="gp-bot-remove" data-id="'.concat(p.id, "\" title=\"\u79FB\u9664\u4EBA\u673A\">\u2715</button>") : "";
+      return '\n        <div class="game-player'.concat(p.id === myId ? " me" : "").concat(p.alive ? "" : " wl-dead", '">\n          ').concat(av, '\n          <span class="gp-name">').concat(esc(p.name)).concat(me).concat(crown).concat(dead).concat(botTag, "</span>\n          ").concat(rmBtn, "\n        </div>");
+    }).join("");
   }
-
-  /* —— 开始按钮:仅房主可用;添加人机按钮:仅房主且在大厅可见 —— */
   function updateStartBtn() {
     if (botBtn) botBtn.style.display = roomPhase === "lobby" && myId && myId === ownerId ? "" : "none";
     if (!startBtn) return;
@@ -117,59 +85,62 @@
       return;
     }
     startBtn.style.display = "";
-    const isOwner = myId && myId === ownerId;
+    var isOwner = myId && myId === ownerId;
     startBtn.disabled = !isOwner;
-    startBtn.textContent = isOwner ? "开始游戏" : "等待房主开始…";
+    startBtn.textContent = isOwner ? "\u5F00\u59CB\u6E38\u620F" : "\u7B49\u5F85\u623F\u4E3B\u5F00\u59CB\u2026";
   }
-
-  /* —— 阶段倒计时 —— */
   function startCountdown(sec) {
     countdown = sec;
     if (countTimer) clearInterval(countTimer);
-    countTimer = setInterval(() => {
+    countTimer = setInterval(function () {
       countdown--;
       if (countdown <= 0) clearInterval(countTimer);
       updateStage();
-    }, 1000);
+    }, 1e3);
   }
-
   function updateStage() {
-    const cd = countdown > 0 ? `(${countdown}s)` : "";
+    var cd = countdown > 0 ? "(".concat(countdown, "s)") : "";
     stageEl.textContent = (PHASE_TEXT[roomPhase] || roomPhase) + " " + cd;
     if (roomPhase === "discuss" && lastDeaths.length) {
-      stageEl.textContent = `☀️ 昨晚 ${lastDeaths.join("、")} 出局,请讨论 ${cd}`;
+      stageEl.textContent = "\u2600\uFE0F \u6628\u665A ".concat(lastDeaths.join("\u3001"), " \u51FA\u5C40,\u8BF7\u8BA8\u8BBA ").concat(cd);
     }
     if (roomPhase === "vote") {
-      stageEl.textContent = `🗳️ 请投票放逐一名玩家 ${cd}`;
+      stageEl.textContent = "\uD83D\uDDF3\uFE0F \u8BF7\u6295\u7968\u653E\u9010\u4E00\u540D\u73A9\u5BB6 ".concat(cd);
     }
   }
-
-  let lastDeaths = [];
-  let acted = false; // 当前阶段是否已行动
-
-  /* —— 行动区 —— */
+  var lastDeaths = [];
+  var acted = false;
   function renderAction() {
+    var _a;
     actionEl.innerHTML = "";
     acted = false;
     if (!myRole) return;
-    const alive = players.filter((p) => p.alive && p.id !== myId);
-
+    var alive = players.filter(function (p) {
+      return p.alive && p.id !== myId;
+    });
     function makeButtons(act, label, targets, done) {
-      const box = document.createElement("div");
+      var box = document.createElement("div");
       box.className = "wl-act-group";
-      const title = document.createElement("div");
+      var title = document.createElement("div");
       title.className = "wl-act-label";
       title.textContent = label;
       box.appendChild(title);
-      const list = document.createElement("div");
+      var list = document.createElement("div");
       list.className = "wl-act-list";
-      (targets.length ? targets : [{ id: "none", name: "没有可选目标" }]).forEach((t) => {
-        const b = document.createElement("button");
+      (targets.length ? targets : [{
+        id: "none",
+        name: "\u6CA1\u6709\u53EF\u9009\u76EE\u6807"
+      }]).forEach(function (t) {
+        var b = document.createElement("button");
         b.className = "wl-act-btn";
         b.textContent = t.name;
         b.disabled = t.id === "none" || acted;
-        b.addEventListener("click", () => {
-          send({ t: "action", act, target: t.id });
+        b.addEventListener("click", function () {
+          send({
+            t: "action",
+            act: act,
+            target: t.id
+          });
           b.disabled = true;
           acted = true;
           if (done) done();
@@ -179,35 +150,31 @@
       box.appendChild(list);
       actionEl.appendChild(box);
     }
-
     if (roomPhase === "kill" && myRole === "wolf") {
-      makeButtons("kill", "🐺 选择要刀杀的玩家(狼人可讨论)", alive);
+      makeButtons("kill", "\uD83D\uDC3A \u9009\u62E9\u8981\u5200\u6740\u7684\u73A9\u5BB6(\u72FC\u4EBA\u53EF\u8BA8\u8BBA)", alive);
     } else if (roomPhase === "seer" && myRole === "seer") {
-      makeButtons("seer", "🔮 选择要查验的玩家", alive);
+      makeButtons("seer", "\uD83D\uDD2E \u9009\u62E9\u8981\u67E5\u9A8C\u7684\u73A9\u5BB6", alive);
     } else if (roomPhase === "witch" && myRole === "witch") {
-      // 女巫:救 + 毒(各自独立)
-      actionEl.appendChild(btnNote("💊 解药:" + (witchSaveLeft ? "可用" : "已用")));
-      if (witchSaveLeft) makeButtons("save", "选择要救的玩家", alive);
-      actionEl.appendChild(btnNote("☠️ 毒药:" + (witchPoisonLeft ? "可用" : "已用")));
-      if (witchPoisonLeft) makeButtons("poison", "选择要毒的玩家", alive);
+      actionEl.appendChild(btnNote("\uD83D\uDC8A \u89E3\u836F:" + (witchSaveLeft ? "\u53EF\u7528" : "\u5DF2\u7528")));
+      if (witchSaveLeft) makeButtons("save", "\u9009\u62E9\u8981\u6551\u7684\u73A9\u5BB6", alive);
+      actionEl.appendChild(btnNote("\u2620\uFE0F \u6BD2\u836F:" + (witchPoisonLeft ? "\u53EF\u7528" : "\u5DF2\u7528")));
+      if (witchPoisonLeft) makeButtons("poison", "\u9009\u62E9\u8981\u6BD2\u7684\u73A9\u5BB6", alive);
     } else if (roomPhase === "shoot" && myRole === "hunter") {
-      makeButtons("shoot", "🏹 选择要带走的玩家", alive);
-    } else if (roomPhase === "vote" && myRole && players.find((p) => p.id === myId)?.alive !== false) {
-      makeButtons("vote", "🗳️ 选择要放逐的玩家", alive);
+      makeButtons("shoot", "\uD83C\uDFF9 \u9009\u62E9\u8981\u5E26\u8D70\u7684\u73A9\u5BB6", alive);
+    } else if (roomPhase === "vote" && myRole && ((_a = players.find(function (p) {
+      return p.id === myId;
+    })) == null ? void 0 : _a.alive) !== false) {
+      makeButtons("vote", "\uD83D\uDDF3\uFE0F \u9009\u62E9\u8981\u653E\u9010\u7684\u73A9\u5BB6", alive);
     }
   }
-
-  let witchSaveLeft = true;
-  let witchPoisonLeft = true;
-
+  var witchSaveLeft = true;
+  var witchPoisonLeft = true;
   function btnNote(text) {
-    const d = document.createElement("div");
+    var d = document.createElement("div");
     d.className = "wl-act-note";
     d.textContent = text;
     return d;
   }
-
-  /* —— 消息处理 —— */
   function onMessage(data) {
     switch (data.t) {
       case "joined":
@@ -219,164 +186,172 @@
         renderPlayers();
         updateStartBtn();
         updateStage();
-        log(`<b>已加入房间</b>,满 ${data.min} 人可开始,上限 ${data.max} 人`, "sys");
+        log("<b>\u5DF2\u52A0\u5165\u623F\u95F4</b>,\u6EE1 ".concat(data.min, " \u4EBA\u53EF\u5F00\u59CB,\u4E0A\u9650 ").concat(data.max, " \u4EBA"), "sys");
         break;
-
       case "players":
         players = data.players || [];
         ownerId = data.ownerId || null;
         renderPlayers();
         updateStartBtn();
         break;
-
       case "system":
         log(esc(data.text), "sys");
         break;
-
       case "game-start":
-        log("🐺 游戏开始,角色已分配,请查看你的身份!", "sys");
+        log("\uD83D\uDC3A \u6E38\u620F\u5F00\u59CB,\u89D2\u8272\u5DF2\u5206\u914D,\u8BF7\u67E5\u770B\u4F60\u7684\u8EAB\u4EFD!", "sys");
         break;
-
       case "role":
         myRole = data.role;
         roleCard.style.display = "";
         roleText.textContent = data.roleName;
         if (data.wolves && data.wolves.length) {
-          log(`你的狼队友:${data.wolves.map((w) => esc(w.name)).join("、")} 🐺`, "sys");
+          log("\u4F60\u7684\u72FC\u961F\u53CB:".concat(data.wolves.map(function (w) {
+            return esc(w.name);
+          }).join("\u3001"), " \uD83D\uDC3A"), "sys");
         }
         break;
-
       case "phase":
         roomPhase = data.phase;
         updateStartBtn();
-        if (data.night) log(`🌙 第 ${data.night} 夜开始`, "sys");
+        if (data.night) log("\uD83C\uDF19 \u7B2C ".concat(data.night, " \u591C\u5F00\u59CB"), "sys");
         startCountdown(data.seconds || 0);
         renderAction();
         if (data.deaths) {
           lastDeaths = data.deaths;
-          log(`💀 昨晚出局:${data.deaths.join("、")}`, "sys");
+          log("\uD83D\uDC80 \u6628\u665A\u51FA\u5C40:".concat(data.deaths.join("\u3001")), "sys");
         }
         if (data.hunter) {
-          log(`🏹 ${esc(data.hunterName)} 出局,可以开枪带走一人!`, "sys");
+          log("\uD83C\uDFF9 ".concat(esc(data.hunterName), " \u51FA\u5C40,\u53EF\u4EE5\u5F00\u67AA\u5E26\u8D70\u4E00\u4EBA!"), "sys");
         }
         updateStage();
         break;
-
       case "action-ok":
-        log(`✅ 已行动:${data.act}`, "sys");
+        log("\u2705 \u5DF2\u884C\u52A8:".concat(data.act), "sys");
         if (data.act === "save") witchSaveLeft = false;
         if (data.act === "poison") witchPoisonLeft = false;
         break;
-
       case "seer-result":
-        log(`🔮 查验结果:<b>${esc(data.name)}</b> 是 ${data.role === "狼人" ? "🐺 狼人" : "✅ 好人"}`, "ok");
+        log("\uD83D\uDD2E \u67E5\u9A8C\u7ED3\u679C:<b>".concat(esc(data.name), "</b> \u662F ").concat(data.role === "\u72FC\u4EBA" ? "\uD83D\uDC3A \u72FC\u4EBA" : "\u2705 \u597D\u4EBA"), "ok");
         break;
-
       case "death":
         lastDeaths = data.deaths || [];
-        if (lastDeaths.length) log(`💀 出局:${lastDeaths.map(esc).join("、")}`, "sys");
-        else log("🌅 平安夜,无人出局!", "sys");
+        if (lastDeaths.length) log("\uD83D\uDC80 \u51FA\u5C40:".concat(lastDeaths.map(esc).join("\u3001")), "sys");else log("\uD83C\uDF05 \u5E73\u5B89\u591C,\u65E0\u4EBA\u51FA\u5C40!", "sys");
         break;
-
       case "shoot-result":
-        log(`🏹 ${esc(data.hunter)} 开枪带走了 ${esc(data.target)}!`, "err");
+        log("\uD83C\uDFF9 ".concat(esc(data.hunter), " \u5F00\u67AA\u5E26\u8D70\u4E86 ").concat(esc(data.target), "!"), "err");
         break;
-
       case "vote-result":
         if (data.target) {
-          log(`🗳️ ${esc(data.targetName)} 被投票放逐!`, "err");
+          log("\uD83D\uDDF3\uFE0F ".concat(esc(data.targetName), " \u88AB\u6295\u7968\u653E\u9010!"), "err");
         } else {
-          log(`🗳️ ${esc(data.targetName)},无人出局`, "sys");
+          log("\uD83D\uDDF3\uFE0F ".concat(esc(data.targetName), ",\u65E0\u4EBA\u51FA\u5C40"), "sys");
         }
         break;
-
       case "chat":
-        if (data.wolf) log(`🐺 <b>${esc(data.name)}</b>(狼): ${esc(data.text)}`, "sys");
-        else log(`<b>${esc(data.name)}</b>: ${esc(data.text)}`);
+        if (data.wolf) log("\uD83D\uDC3A <b>".concat(esc(data.name), "</b>(\u72FC): ").concat(esc(data.text)), "sys");else log("<b>".concat(esc(data.name), "</b>: ").concat(esc(data.text)));
         break;
-
       case "gameover":
         roomPhase = "over";
         updateStage();
-        overTitle.textContent = data.winner === "狼人" ? "🐺 狼人阵营胜利!" : "🌟 好人阵营胜利!";
-        overRoles.innerHTML = data.roles
-          .map((r) => `<div class="game-rank-item">${r.alive ? "🟢" : "💀"} ${esc(r.name)} — ${esc(r.role)}</div>`)
-          .join("");
+        overTitle.textContent = data.winner === "\u72FC\u4EBA" ? "\uD83D\uDC3A \u72FC\u4EBA\u9635\u8425\u80DC\u5229!" : "\uD83C\uDF1F \u597D\u4EBA\u9635\u8425\u80DC\u5229!";
+        overRoles.innerHTML = data.roles.map(function (r) {
+          return '<div class="game-rank-item">'.concat(r.alive ? "\uD83D\uDFE2" : "\uD83D\uDC80", " ").concat(esc(r.name), " \u2014 ").concat(esc(r.role), "</div>");
+        }).join("");
         overOverlay.style.display = "flex";
-        log(`🏁 游戏结束,${data.winner}阵营获胜!`, "sys");
+        log("\uD83C\uDFC1 \u6E38\u620F\u7ED3\u675F,".concat(data.winner, "\u9635\u8425\u83B7\u80DC!"), "sys");
         break;
-
       default:
         break;
     }
   }
-
-  /* —— 加入 —— */
   function join() {
-    let name = (nameInput.value || "").trim();
-    let qq = "";
+    var name = (nameInput.value || "").trim();
+    var qq = "";
     if (window.Account) {
-      const u = window.Account.getUser();
+      var u = window.Account.getUser();
       if (u) {
         if (!name) name = u.nickname || "QQ" + maskQQ(u.qq);
         qq = u.qq;
       }
     }
     myName = name;
-    send({ t: "join", name, qq });
+    send({
+      t: "join",
+      name: name,
+      qq: qq
+    });
   }
   if (joinBtn) joinBtn.addEventListener("click", join);
-  if (nameInput) nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
-
-  /* —— 开始/再来一局 —— */
-  if (startBtn) startBtn.addEventListener("click", () => send({ t: "start" }));
-  if (botBtn) botBtn.addEventListener("click", () => send({ t: "addbot", n: 1 }));
-  // 移除人机(仅房主可见按钮)
-  playerListEl.addEventListener("click", (e) => {
-    const b = e.target.closest(".gp-bot-remove");
-    if (b) send({ t: "removebot", id: b.dataset.id });
+  if (nameInput) nameInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") join();
   });
-  if (restartBtn) restartBtn.addEventListener("click", () => {
+  if (startBtn) startBtn.addEventListener("click", function () {
+    return send({
+      t: "start"
+    });
+  });
+  if (botBtn) botBtn.addEventListener("click", function () {
+    return send({
+      t: "addbot",
+      n: 1
+    });
+  });
+  playerListEl.addEventListener("click", function (e) {
+    var b = e.target.closest(".gp-bot-remove");
+    if (b) send({
+      t: "removebot",
+      id: b.dataset.id
+    });
+  });
+  if (restartBtn) restartBtn.addEventListener("click", function () {
     overOverlay.style.display = "none";
     myRole = null;
     roleCard.style.display = "none";
     roomPhase = "lobby";
     updateStartBtn();
-    send({ t: "restart" });
+    send({
+      t: "restart"
+    });
   });
-  if (overCloseBtn) overCloseBtn.addEventListener("click", () => { overOverlay.style.display = "none"; });
-
-  /* —— 聊天 —— */
+  if (overCloseBtn) overCloseBtn.addEventListener("click", function () {
+    overOverlay.style.display = "none";
+  });
   function sendChat() {
-    const text = (chatInput.value || "").trim();
+    var text = (chatInput.value || "").trim();
     if (!text) return;
-    send({ t: "chat", text });
+    send({
+      t: "chat",
+      text: text
+    });
     chatInput.value = "";
   }
   if (chatBtn) chatBtn.addEventListener("click", sendChat);
-  if (chatInput) chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
-
-  /* —— 连接 —— */
+  if (chatInput) chatInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") sendChat();
+  });
   function connect() {
-    const proto = location.protocol === "https:" ? "wss://" : "ws://";
+    var proto = location.protocol === "https:" ? "wss://" : "ws://";
     ws = new WebSocket(proto + location.host + "/ws-werewolf");
-    ws.onopen = () => {
-      lobbyStatus.textContent = "✅ 已连接,请输入昵称加入房间";
+    ws.onopen = function () {
+      lobbyStatus.textContent = "\u2705 \u5DF2\u8FDE\u63A5,\u8BF7\u8F93\u5165\u6635\u79F0\u52A0\u5165\u623F\u95F4";
     };
-    ws.onmessage = (e) => {
-      try { onMessage(JSON.parse(e.data)); } catch (err) { /* 忽略 */ }
+    ws.onmessage = function (e) {
+      try {
+        onMessage(JSON.parse(e.data));
+      } catch (err) {}
     };
-    ws.onclose = () => {
+    ws.onclose = function () {
       if (roomEl.style.display !== "none") {
-        alert("连接已断开,即将刷新页面");
-        setTimeout(() => location.reload(), 1200);
+        alert("\u8FDE\u63A5\u5DF2\u65AD\u5F00,\u5373\u5C06\u5237\u65B0\u9875\u9762");
+        setTimeout(function () {
+          return location.reload();
+        }, 1200);
       } else {
-        lobbyStatus.textContent = "⚠️ 连接断开,正在重连…";
-        setTimeout(connect, 2000);
+        lobbyStatus.textContent = "\u26A0\uFE0F \u8FDE\u63A5\u65AD\u5F00,\u6B63\u5728\u91CD\u8FDE\u2026";
+        setTimeout(connect, 2e3);
       }
     };
-    ws.onerror = () => { /* onclose 处理 */ };
+    ws.onerror = function () {};
   }
-
   connect();
 })();

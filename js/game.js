@@ -1,131 +1,116 @@
-/* ==========================================================================
-   《DY导航站》你画我猜客户端
-   ==========================================================================
-   功能:WebSocket 实时连接、Canvas 画板(画师绘制/全员同步)、
-         猜词、房间聊天、得分排名。单房间,满 3 人可开始。
-   ========================================================================== */
-
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = function __defNormalProp(obj, key, value) {
+  return key in obj ? __defProp(obj, key, {
+    enumerable: true,
+    configurable: true,
+    writable: true,
+    value: value
+  }) : obj[key] = value;
+};
+var __spreadValues = function __spreadValues(a, b) {
+  for (var prop in b || (b = {})) if (__hasOwnProp.call(b, prop)) __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols) for (var props = __getOwnPropSymbols(b), i = 0, n = props.length, prop; i < n; i++) {
+    prop = props[i];
+    if (__propIsEnum.call(b, prop)) __defNormalProp(a, prop, b[prop]);
+  }
+  return a;
+};
+var __spreadProps = function __spreadProps(a, b) {
+  return __defProps(a, __getOwnPropDescs(b));
+};
 (function () {
   "use strict";
 
-  const CW = 800; // 画布逻辑宽
-  const CH = 500; // 画布逻辑高
-  const BG = "#ffffff"; // 画板背景
-
-  /* —— DOM —— */
-  const lobbyEl = document.getElementById("game-lobby");
-  const roomEl = document.getElementById("game-room");
-  const nameInput = document.getElementById("game-name");
-  const joinBtn = document.getElementById("game-join-btn");
-  const lobbyStatus = document.getElementById("game-lobby-status");
-  const infoEl = document.getElementById("game-info");
-  const startBtn = document.getElementById("game-start-btn");
-  const botBtn = document.getElementById("game-bot-btn");
-  const countEl = document.getElementById("game-count");
-  const playerListEl = document.getElementById("game-player-list");
-  const guessInput = document.getElementById("game-guess");
-  const guessBtn = document.getElementById("game-guess-btn");
-  const chatInput = document.getElementById("game-chat");
-  const chatBtn = document.getElementById("game-chat-btn");
-  const logEl = document.getElementById("game-log");
-  const canvas = document.getElementById("game-canvas");
-  const toolbarEl = document.getElementById("game-toolbar");
-  const canvasTip = document.getElementById("game-canvas-tip");
-  const overOverlay = document.getElementById("game-over-overlay");
-  const rankingEl = document.getElementById("game-ranking");
-  const restartBtn = document.getElementById("game-restart-btn");
-  const overCloseBtn = document.getElementById("game-over-close");
-  const kickOverlay = document.getElementById("game-kick-overlay");
-  const kickText = document.getElementById("game-kick-text");
-  const kickProgress = document.getElementById("game-kick-progress");
-  const kickAgreeBtn = document.getElementById("game-kick-agree");
-  const kickAgainstBtn = document.getElementById("game-kick-against");
-
-  if (!canvas) return; // 非游戏页面
-
-  const ctx = canvas.getContext("2d");
+  var CW = 800;
+  var CH = 500;
+  var BG = "#ffffff";
+  var lobbyEl = document.getElementById("game-lobby");
+  var roomEl = document.getElementById("game-room");
+  var nameInput = document.getElementById("game-name");
+  var joinBtn = document.getElementById("game-join-btn");
+  var lobbyStatus = document.getElementById("game-lobby-status");
+  var infoEl = document.getElementById("game-info");
+  var startBtn = document.getElementById("game-start-btn");
+  var botBtn = document.getElementById("game-bot-btn");
+  var countEl = document.getElementById("game-count");
+  var playerListEl = document.getElementById("game-player-list");
+  var guessInput = document.getElementById("game-guess");
+  var guessBtn = document.getElementById("game-guess-btn");
+  var chatInput = document.getElementById("game-chat");
+  var chatBtn = document.getElementById("game-chat-btn");
+  var logEl = document.getElementById("game-log");
+  var canvas = document.getElementById("game-canvas");
+  var toolbarEl = document.getElementById("game-toolbar");
+  var canvasTip = document.getElementById("game-canvas-tip");
+  var overOverlay = document.getElementById("game-over-overlay");
+  var rankingEl = document.getElementById("game-ranking");
+  var restartBtn = document.getElementById("game-restart-btn");
+  var overCloseBtn = document.getElementById("game-over-close");
+  var kickOverlay = document.getElementById("game-kick-overlay");
+  var kickText = document.getElementById("game-kick-text");
+  var kickProgress = document.getElementById("game-kick-progress");
+  var kickAgreeBtn = document.getElementById("game-kick-agree");
+  var kickAgainstBtn = document.getElementById("game-kick-against");
+  if (!canvas) return;
+  var ctx = canvas.getContext("2d");
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, CW, CH);
-
-  /* —— 状态 —— */
-  let ws = null;
-  let myId = null;
-  let myName = "";
-  let isDrawer = false;
-  let started = false;
-  let roundNo = 0;
-  let maxRounds = 0;
-  let wordLen = 0;
-  let seconds = 0;
-  let players = [];
-  let ownerId = null; // 房主(第一个进房间的人)
-  let drawing = false;
-  let last = null;
-  let curColor = "#000000";
-  let curSize = 8;
-  let eraser = false;
-
-  /* —— 工具 —— */
+  var ws = null;
+  var myId = null;
+  var myName = "";
+  var isDrawer = false;
+  var started = false;
+  var roundNo = 0;
+  var maxRounds = 0;
+  var wordLen = 0;
+  var seconds = 0;
+  var players = [];
+  var ownerId = null;
+  var drawing = false;
+  var last = null;
+  var curColor = "#000000";
+  var curSize = 8;
+  var eraser = false;
   function esc(s) {
-    return String(s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
-
   function maskQQ(qq) {
-    const s = String(qq || "");
+    var s = String(qq || "");
     if (s.length <= 5) return s;
     return s.slice(0, 3) + "****" + s.slice(-2);
   }
-
   function send(obj) {
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
   }
-
   function log(msg, cls) {
-    const d = document.createElement("div");
+    var d = document.createElement("div");
     d.className = "game-log-item" + (cls ? " " + cls : "");
     d.innerHTML = msg;
     logEl.appendChild(d);
     logEl.scrollTop = logEl.scrollHeight;
-    while (logEl.children.length > 80) logEl.removeChild(logEl.firstChild); // 防爆
+    while (logEl.children.length > 80) logEl.removeChild(logEl.firstChild);
   }
-
   function wordDots() {
-    return Array(Math.max(wordLen, 0)).fill("＿").join(" ");
+    return Array(Math.max(wordLen, 0)).fill("\uFF3F").join(" ");
   }
-
-  /* —— 玩家列表渲染 —— */
   function renderPlayers() {
     countEl.textContent = players.length;
-    playerListEl.innerHTML = players
-      .map((p) => {
-        const me = p.id === myId ? " (我)" : "";
-        const role = p.id === myId && isDrawer ? " 🎨" : "";
-        const crown = p.id === ownerId ? " 👑" : "";
-        const botTag = p.bot ? " 🤖" : "";
-        const rmBtn = p.bot && myId === ownerId
-          ? `<button class="gp-bot-remove" data-id="${p.id}" title="移除人机">✕</button>`
-          : "";
-        const kickBtn = !p.bot && myId === ownerId && p.id !== myId && p.id !== ownerId
-          ? `<button class="gp-kick" data-id="${p.id}" title="发起踢人投票">踢</button>`
-          : "";
-        const av = p.qq
-          ? `<img class="gp-avatar" src="${(window.Account && window.Account.avatarUrl) ? window.Account.avatarUrl(p.qq) : "https://q1.qlogo.cn/g?b=qq&nk=" + p.qq + "&s=100"}" alt="" onerror="this.remove()" />`
-          : `<span class="gp-avatar">${esc(p.name.charAt(0))}</span>`;
-        return `
-        <div class="game-player${p.id === myId ? " me" : ""}">
-          ${av}
-          <span class="gp-name">${esc(p.name)}${me}${crown}${role}${botTag}</span>
-          ${rmBtn}
-          ${kickBtn}
-          <span class="gp-score">${p.score} 分</span>
-        </div>`;
-      })
-      .join("");
+    playerListEl.innerHTML = players.map(function (p) {
+      var me = p.id === myId ? " (\u6211)" : "";
+      var role = p.id === myId && isDrawer ? " \uD83C\uDFA8" : "";
+      var crown = p.id === ownerId ? " \uD83D\uDC51" : "";
+      var botTag = p.bot ? " \uD83E\uDD16" : "";
+      var rmBtn = p.bot && myId === ownerId ? '<button class="gp-bot-remove" data-id="'.concat(p.id, "\" title=\"\u79FB\u9664\u4EBA\u673A\">\u2715</button>") : "";
+      var kickBtn = !p.bot && myId === ownerId && p.id !== myId && p.id !== ownerId ? '<button class="gp-kick" data-id="'.concat(p.id, "\" title=\"\u53D1\u8D77\u8E22\u4EBA\u6295\u7968\">\u8E22</button>") : "";
+      var av = p.qq ? '<img class="gp-avatar" src="'.concat(window.Account && window.Account.avatarUrl ? window.Account.avatarUrl(p.qq) : "https://q1.qlogo.cn/g?b=qq&nk=" + p.qq + "&s=100", '" alt="" onerror="this.remove()" />') : '<span class="gp-avatar">'.concat(esc(p.name.charAt(0)), "</span>");
+      return '\n        <div class="game-player'.concat(p.id === myId ? " me" : "", '">\n          ').concat(av, '\n          <span class="gp-name">').concat(esc(p.name)).concat(me).concat(crown).concat(role).concat(botTag, "</span>\n          ").concat(rmBtn, "\n          ").concat(kickBtn, '\n          <span class="gp-score">').concat(p.score, " \u5206</span>\n        </div>");
+    }).join("");
   }
-
-  /* —— 开始按钮:仅房主可用;添加人机按钮:仅房主且未开局可见 —— */
   function updateStartBtn() {
     if (botBtn) botBtn.style.display = !started && myId && myId === ownerId ? "" : "none";
     if (!startBtn) return;
@@ -134,50 +119,48 @@
       return;
     }
     startBtn.style.display = "";
-    const isOwner = myId && myId === ownerId;
+    var isOwner = myId && myId === ownerId;
     startBtn.disabled = !isOwner;
-    startBtn.textContent = isOwner ? "开始游戏" : "等待房主开始…";
+    startBtn.textContent = isOwner ? "\u5F00\u59CB\u6E38\u620F" : "\u7B49\u5F85\u623F\u4E3B\u5F00\u59CB\u2026";
   }
-
-  /* —— 状态栏 —— */
   function renderInfo() {
     if (!started) {
-      infoEl.textContent = players.length >= 3
-        ? `已就绪 ${players.length} 人,点击「开始游戏」开局`
-        : `等待玩家加入…(${players.length}/3 可开局)`;
+      infoEl.textContent = players.length >= 3 ? "\u5DF2\u5C31\u7EEA ".concat(players.length, " \u4EBA,\u70B9\u51FB\u300C\u5F00\u59CB\u6E38\u620F\u300D\u5F00\u5C40") : "\u7B49\u5F85\u73A9\u5BB6\u52A0\u5165\u2026(".concat(players.length, "/3 \u53EF\u5F00\u5C40)");
       return;
     }
-    const meDraw = isDrawer ? " (你正在画)" : "";
-    infoEl.textContent = `第 ${roundNo}/${maxRounds} 轮 · 画师:${myName === "" ? "?" : getDrawerName()}${meDraw} · 剩余 ${seconds}s · 词:${isDrawer ? "???" : wordDots()}`;
+    var meDraw = isDrawer ? " (\u4F60\u6B63\u5728\u753B)" : "";
+    infoEl.textContent = "\u7B2C ".concat(roundNo, "/").concat(maxRounds, " \u8F6E \xB7 \u753B\u5E08:").concat(myName === "" ? "?" : getDrawerName()).concat(meDraw, " \xB7 \u5269\u4F59 ").concat(seconds, "s \xB7 \u8BCD:").concat(isDrawer ? "???" : wordDots());
   }
-
   function getDrawerName() {
-    return players.find((p) => p.id === myId && isDrawer) ? myName : "…";
+    return players.find(function (p) {
+      return p.id === myId && isDrawer;
+    }) ? myName : "\u2026";
   }
-
-  /* —— 画板 —— */
   function posFromEvent(e) {
-    const r = canvas.getBoundingClientRect();
+    var r = canvas.getBoundingClientRect();
     return {
-      x: ((e.clientX - r.left) * CW) / r.width,
-      y: ((e.clientY - r.top) * CH) / r.height,
+      x: (e.clientX - r.left) * CW / r.width,
+      y: (e.clientY - r.top) * CH / r.height
     };
   }
-
   function startStroke(x, y) {
     if (!isDrawer || !started) return;
     drawing = true;
-    last = { x, y };
+    last = {
+      x: x,
+      y: y
+    };
     lastSend = 0;
   }
-
-  let lastSend = 0; // 笔画网络发送节流(本地绘制即时,发送限速防卡顿)
+  var lastSend = 0;
   function moveStroke(x, y) {
     if (!drawing || !isDrawer || !started) return;
-    const p = { x, y };
+    var p = {
+      x: x,
+      y: y
+    };
     drawLine(last.x, last.y, p.x, p.y, curColor, curSize);
-    // 30ms 节流:合并发送,减少网络消息量(多人时防卡顿)
-    const now = Date.now();
+    var now = Date.now();
     if (now - lastSend >= 30) {
       lastSend = now;
       send({
@@ -187,17 +170,15 @@
         x2: Math.round(p.x * 10) / 10,
         y2: Math.round(p.y * 10) / 10,
         c: curColor,
-        w: curSize,
+        w: curSize
       });
     }
     last = p;
   }
-
   function endStroke() {
     drawing = false;
     last = null;
   }
-
   function drawLine(x1, y1, x2, y2, c, w) {
     ctx.strokeStyle = c;
     ctx.lineWidth = w;
@@ -208,151 +189,191 @@
     ctx.lineTo(x2, y2);
     ctx.stroke();
   }
-
   function clearCanvas() {
     ctx.fillStyle = BG;
     ctx.fillRect(0, 0, CW, CH);
   }
-
-  canvas.addEventListener("mousedown", (e) => {
-    const p = posFromEvent(e);
+  canvas.addEventListener("mousedown", function (e) {
+    var p = posFromEvent(e);
     startStroke(p.x, p.y);
   });
-  canvas.addEventListener("mousemove", (e) => {
-    const p = posFromEvent(e);
+  canvas.addEventListener("mousemove", function (e) {
+    var p = posFromEvent(e);
     moveStroke(p.x, p.y);
   });
   canvas.addEventListener("mouseup", endStroke);
   canvas.addEventListener("mouseleave", endStroke);
-  canvas.addEventListener("touchstart", (e) => {
+  canvas.addEventListener("touchstart", function (e) {
     e.preventDefault();
-    const p = posFromEvent(e.touches[0]);
+    var p = posFromEvent(e.touches[0]);
     startStroke(p.x, p.y);
-  }, { passive: false });
-  canvas.addEventListener("touchmove", (e) => {
+  }, {
+    passive: false
+  });
+  canvas.addEventListener("touchmove", function (e) {
     e.preventDefault();
-    const p = posFromEvent(e.touches[0]);
+    var p = posFromEvent(e.touches[0]);
     moveStroke(p.x, p.y);
-  }, { passive: false });
-  canvas.addEventListener("touchend", (e) => {
+  }, {
+    passive: false
+  });
+  canvas.addEventListener("touchend", function (e) {
     e.preventDefault();
     endStroke();
-  }, { passive: false });
-
-  /* —— 工具条 —— */
-  document.querySelectorAll(".tool-color").forEach((b) => {
-    b.addEventListener("click", () => {
-      document.querySelectorAll(".tool-color").forEach((x) => x.classList.remove("active"));
+  }, {
+    passive: false
+  });
+  document.querySelectorAll(".tool-color").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".tool-color").forEach(function (x) {
+        return x.classList.remove("active");
+      });
       b.classList.add("active");
       curColor = b.dataset.c;
       eraser = false;
       document.getElementById("tool-eraser").classList.remove("active");
     });
   });
-  document.querySelectorAll(".tool-size").forEach((b) => {
-    b.addEventListener("click", () => {
-      document.querySelectorAll(".tool-size").forEach((x) => x.classList.remove("active"));
+  document.querySelectorAll(".tool-size").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".tool-size").forEach(function (x) {
+        return x.classList.remove("active");
+      });
       b.classList.add("active");
       curSize = parseInt(b.dataset.w, 10);
     });
   });
-  const eraserBtn = document.getElementById("tool-eraser");
+  var eraserBtn = document.getElementById("tool-eraser");
   if (eraserBtn) {
-    eraserBtn.addEventListener("click", () => {
+    eraserBtn.addEventListener("click", function () {
       eraser = !eraser;
       eraserBtn.classList.toggle("active", eraser);
       curColor = eraser ? BG : "#000000";
       curSize = eraser ? 24 : 8;
-      document.querySelectorAll(".tool-color").forEach((x) => x.classList.remove("active"));
+      document.querySelectorAll(".tool-color").forEach(function (x) {
+        return x.classList.remove("active");
+      });
     });
   }
-  document.getElementById("tool-clear").addEventListener("click", () => {
+  document.getElementById("tool-clear").addEventListener("click", function () {
     clearCanvas();
-    send({ t: "clear" });
+    send({
+      t: "clear"
+    });
   });
-
-  /* —— 猜词 —— */
   function sendGuess() {
-    const text = (guessInput.value || "").trim();
+    var text = (guessInput.value || "").trim();
     if (!text) return;
-    send({ t: "guess", text });
+    send({
+      t: "guess",
+      text: text
+    });
     guessInput.value = "";
   }
   if (guessBtn) guessBtn.addEventListener("click", sendGuess);
-  if (guessInput) guessInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendGuess(); });
-
-  /* —— 房间聊天 —— */
+  if (guessInput) guessInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") sendGuess();
+  });
   function sendChat() {
-    const text = (chatInput.value || "").trim();
+    var text = (chatInput.value || "").trim();
     if (!text) return;
-    send({ t: "chat", text });
+    send({
+      t: "chat",
+      text: text
+    });
     chatInput.value = "";
   }
   if (chatBtn) chatBtn.addEventListener("click", sendChat);
-  if (chatInput) chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
-
-  /* —— 加入房间 —— */
+  if (chatInput) chatInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") sendChat();
+  });
   function join() {
-    let name = (nameInput.value || "").trim();
-    let qq = "";
+    var name = (nameInput.value || "").trim();
+    var qq = "";
     if (!name && window.Account) {
-      const u = window.Account.getUser();
-      if (u) name = (u.nickname || "QQ" + maskQQ(u.qq));
+      var u = window.Account.getUser();
+      if (u) name = u.nickname || "QQ" + maskQQ(u.qq);
     }
     if (window.Account) {
-      const u = window.Account.getUser();
-      if (u) qq = u.qq; // 登录用户带 QQ 号,用于显示头像
+      var _u = window.Account.getUser();
+      if (_u) qq = _u.qq;
     }
     myName = name;
-    send({ t: "join", name, qq });
+    send({
+      t: "join",
+      name: name,
+      qq: qq
+    });
   }
   if (joinBtn) joinBtn.addEventListener("click", join);
-  if (nameInput) nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") join(); });
-
-  /* —— 开始/再来一局 —— */
-  if (startBtn) startBtn.addEventListener("click", () => send({ t: "start" }));
-  if (botBtn) botBtn.addEventListener("click", () => send({ t: "addbot", n: 1 }));
-  // 移除人机 / 发起踢人投票(仅房主可见按钮)
-  playerListEl.addEventListener("click", (e) => {
-    const rb = e.target.closest(".gp-bot-remove");
-    if (rb) { send({ t: "removebot", id: rb.dataset.id }); return; }
-    const kb = e.target.closest(".gp-kick");
-    if (kb) send({ t: "kick", target: kb.dataset.id });
+  if (nameInput) nameInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") join();
   });
-
-  /* —— 踢人投票 —— */
-  let myKickVoted = false;
+  if (startBtn) startBtn.addEventListener("click", function () {
+    return send({
+      t: "start"
+    });
+  });
+  if (botBtn) botBtn.addEventListener("click", function () {
+    return send({
+      t: "addbot",
+      n: 1
+    });
+  });
+  playerListEl.addEventListener("click", function (e) {
+    var rb = e.target.closest(".gp-bot-remove");
+    if (rb) {
+      send({
+        t: "removebot",
+        id: rb.dataset.id
+      });
+      return;
+    }
+    var kb = e.target.closest(".gp-kick");
+    if (kb) send({
+      t: "kick",
+      target: kb.dataset.id
+    });
+  });
+  var myKickVoted = false;
   function castKickVote(agree) {
     if (myKickVoted) return;
     myKickVoted = true;
-    send({ t: "kickvote", agree });
+    send({
+      t: "kickvote",
+      agree: agree
+    });
     if (kickAgreeBtn) kickAgreeBtn.disabled = true;
     if (kickAgainstBtn) kickAgainstBtn.disabled = true;
   }
-  if (kickAgreeBtn) kickAgreeBtn.addEventListener("click", () => castKickVote(true));
-  if (kickAgainstBtn) kickAgainstBtn.addEventListener("click", () => castKickVote(false));
-  if (restartBtn) restartBtn.addEventListener("click", () => {
-    overOverlay.style.display = "none";
-    send({ t: "restart" });
+  if (kickAgreeBtn) kickAgreeBtn.addEventListener("click", function () {
+    return castKickVote(true);
   });
-  if (overCloseBtn) overCloseBtn.addEventListener("click", () => { overOverlay.style.display = "none"; });
-
-  /* —— 游戏模式切换 —— */
+  if (kickAgainstBtn) kickAgainstBtn.addEventListener("click", function () {
+    return castKickVote(false);
+  });
+  if (restartBtn) restartBtn.addEventListener("click", function () {
+    overOverlay.style.display = "none";
+    send({
+      t: "restart"
+    });
+  });
+  if (overCloseBtn) overCloseBtn.addEventListener("click", function () {
+    overOverlay.style.display = "none";
+  });
   function applyMode() {
     toolbarEl.style.display = isDrawer ? "" : "none";
     canvas.style.cursor = isDrawer ? "crosshair" : "default";
     guessInput.disabled = isDrawer || !started;
     guessBtn.disabled = isDrawer || !started;
     if (isDrawer) {
-      canvasTip.textContent = "🎨 你正在画!请画出你的词";
+      canvasTip.textContent = "\uD83C\uDFA8 \u4F60\u6B63\u5728\u753B!\u8BF7\u753B\u51FA\u4F60\u7684\u8BCD";
     } else if (started) {
-      canvasTip.textContent = "👀 看画猜词,输入答案猜对 +10 分";
+      canvasTip.textContent = "\uD83D\uDC40 \u770B\u753B\u731C\u8BCD,\u8F93\u5165\u7B54\u6848\u731C\u5BF9 +10 \u5206";
     } else {
       canvasTip.textContent = "";
     }
   }
-
-  /* —— 消息处理 —— */
   function onMessage(data) {
     switch (data.t) {
       case "joined":
@@ -366,9 +387,8 @@
         renderInfo();
         applyMode();
         updateStartBtn();
-        log(`<b>已加入房间</b>,等满 ${data.min} 人即可开始`, "sys");
+        log("<b>\u5DF2\u52A0\u5165\u623F\u95F4</b>,\u7B49\u6EE1 ".concat(data.min, " \u4EBA\u5373\u53EF\u5F00\u59CB"), "sys");
         break;
-
       case "players":
         players = data.players || [];
         ownerId = data.ownerId || null;
@@ -378,98 +398,89 @@
         applyMode();
         updateStartBtn();
         break;
-
       case "need3":
-        lobbyStatus.textContent = `还差 ${data.n} 人才能开始`;
+        lobbyStatus.textContent = "\u8FD8\u5DEE ".concat(data.n, " \u4EBA\u624D\u80FD\u5F00\u59CB");
         break;
-
       case "started":
         started = true;
         updateStartBtn();
-        log("🎉 游戏开始!", "sys");
+        log("\uD83C\uDF89 \u6E38\u620F\u5F00\u59CB!", "sys");
         break;
-
-      case "round": {
-        started = true;
-        isDrawer = data.drawer === myId;
-        roundNo = data.round;
-        maxRounds = data.maxRounds;
-        wordLen = data.wordLen;
-        seconds = data.seconds;
-        clearCanvas();
-        players = players.map((p) => ({ ...p, drawer: p.id === data.drawer }));
-        renderPlayers();
-        renderInfo();
-        applyMode();
-        log(`第 ${data.round}/${data.maxRounds} 轮开始 · 画师:<b>${esc(data.drawerName)}</b> · 词长:${wordDots()}`, "sys");
-        break;
-      }
-
-      case "yourword": // 只发给画师
+      case "round":
+        {
+          started = true;
+          isDrawer = data.drawer === myId;
+          roundNo = data.round;
+          maxRounds = data.maxRounds;
+          wordLen = data.wordLen;
+          seconds = data.seconds;
+          clearCanvas();
+          players = players.map(function (p) {
+            return __spreadProps(__spreadValues({}, p), {
+              drawer: p.id === data.drawer
+            });
+          });
+          renderPlayers();
+          renderInfo();
+          applyMode();
+          log("\u7B2C ".concat(data.round, "/").concat(data.maxRounds, " \u8F6E\u5F00\u59CB \xB7 \u753B\u5E08:<b>").concat(esc(data.drawerName), "</b> \xB7 \u8BCD\u957F:").concat(wordDots()), "sys");
+          break;
+        }
+      case "yourword":
         if (isDrawer) {
-          canvasTip.textContent = `🎨 你画的词是:【${esc(data.word)}】(不要说出来!)`;
+          canvasTip.textContent = "\uD83C\uDFA8 \u4F60\u753B\u7684\u8BCD\u662F:\u3010".concat(esc(data.word), "\u3011(\u4E0D\u8981\u8BF4\u51FA\u6765!)");
         }
         break;
-
       case "tick":
         seconds = data.seconds;
         renderInfo();
         break;
-
       case "draw":
         if (!isDrawer) drawLine(data.x1, data.y1, data.x2, data.y2, data.c, data.w);
         break;
-
       case "clear":
         if (!isDrawer) clearCanvas();
         break;
-
       case "result":
         if (data.ok) {
-          const scoreText = (data.scores || []).map((s) => `${s.name}:${s.score}`).join(" · ");
-          log(`🎯 <b>${esc(data.name)}</b> 猜对了!答案是「<b>${esc(data.answer)}</b>」,画师 +5`, "ok");
+          var scoreText = (data.scores || []).map(function (s) {
+            return "".concat(s.name, ":").concat(s.score);
+          }).join(" \xB7 ");
+          log("\uD83C\uDFAF <b>".concat(esc(data.name), "</b> \u731C\u5BF9\u4E86!\u7B54\u6848\u662F\u300C<b>").concat(esc(data.answer), "</b>\u300D,\u753B\u5E08 +5"), "ok");
           if (data.scores) players = data.scores;
           renderPlayers();
         } else {
-          log("❌ 不对哦,再想想", "err");
+          log("\u274C \u4E0D\u5BF9\u54E6,\u518D\u60F3\u60F3", "err");
         }
         break;
-
       case "timeout":
-        log(`⏰ 时间到!答案是「<b>${esc(data.answer)}</b>」`, "sys");
+        log("\u23F0 \u65F6\u95F4\u5230!\u7B54\u6848\u662F\u300C<b>".concat(esc(data.answer), "</b>\u300D"), "sys");
         break;
-
       case "drawer-left":
-        log("画师离开了,跳过当前回合", "sys");
+        log("\u753B\u5E08\u79BB\u5F00\u4E86,\u8DF3\u8FC7\u5F53\u524D\u56DE\u5408", "sys");
         break;
-
       case "kickvote-start":
         myKickVoted = false;
         if (kickAgreeBtn) kickAgreeBtn.disabled = false;
         if (kickAgainstBtn) kickAgainstBtn.disabled = false;
-        kickText.textContent = `房主发起投票:踢出「${esc(data.targetName)}」?`;
-        kickProgress.textContent = `需要 ${data.needed}/${data.humans} 名真人同意 · ${data.seconds}s 内投票`;
+        kickText.textContent = "\u623F\u4E3B\u53D1\u8D77\u6295\u7968:\u8E22\u51FA\u300C".concat(esc(data.targetName), "\u300D?");
+        kickProgress.textContent = "\u9700\u8981 ".concat(data.needed, "/").concat(data.humans, " \u540D\u771F\u4EBA\u540C\u610F \xB7 ").concat(data.seconds, "s \u5185\u6295\u7968");
         kickOverlay.style.display = "flex";
         break;
-
-      case "kickvote-update": {
-        const votes = data.votes || {};
-        const agree = Object.values(votes).filter(Boolean).length;
-        kickProgress.textContent = `需要 ${data.needed} 票同意 · 已同意 ${agree} 票`;
-        break;
-      }
-
+      case "kickvote-update":
+        {
+          var votes = data.votes || {};
+          var agree = Object.values(votes).filter(Boolean).length;
+          kickProgress.textContent = "\u9700\u8981 ".concat(data.needed, " \u7968\u540C\u610F \xB7 \u5DF2\u540C\u610F ").concat(agree, " \u7968");
+          break;
+        }
       case "kickvote-end":
         kickOverlay.style.display = "none";
-        if (data.ok) log(`🗳️ <b>${esc(data.targetName)}</b> 被投票踢出房间`, "err");
-        else log(`🗳️ 踢出 <b>${esc(data.targetName)}</b> 未通过(同意 ${data.agree}/${data.needed})${data.reason ? " · " + esc(data.reason) : ""}`, "sys");
+        if (data.ok) log("\uD83D\uDDF3\uFE0F <b>".concat(esc(data.targetName), "</b> \u88AB\u6295\u7968\u8E22\u51FA\u623F\u95F4"), "err");else log("\uD83D\uDDF3\uFE0F \u8E22\u51FA <b>".concat(esc(data.targetName), "</b> \u672A\u901A\u8FC7(\u540C\u610F ").concat(data.agree, "/").concat(data.needed, ")").concat(data.reason ? " \xB7 " + esc(data.reason) : ""), "sys");
         break;
-
       case "chat":
-        if (data.name === "系统") log(`<span class="sys">${esc(data.text)}</span>`, "sys");
-        else log(`<b>${esc(data.name)}</b>: ${esc(data.text)}`);
+        if (data.name === "\u7CFB\u7EDF") log('<span class="sys">'.concat(esc(data.text), "</span>"), "sys");else log("<b>".concat(esc(data.name), "</b>: ").concat(esc(data.text)));
         break;
-
       case "over":
         started = false;
         isDrawer = false;
@@ -477,54 +488,50 @@
         applyMode();
         updateStartBtn();
         if (data.ranking && data.ranking.length) {
-          rankingEl.innerHTML = data.ranking
-            .map((r, i) => {
-              const medal = ["🥇", "🥈", "🥉"][i] || `${i + 1}.`;
-              return `<div class="game-rank-item">${medal} <b>${esc(r.name)}</b> — ${r.score} 分</div>`;
-            })
-            .join("");
+          rankingEl.innerHTML = data.ranking.map(function (r, i) {
+            var medal = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"][i] || "".concat(i + 1, ".");
+            return '<div class="game-rank-item">'.concat(medal, " <b>").concat(esc(r.name), "</b> \u2014 ").concat(r.score, " \u5206</div>");
+          }).join("");
         } else {
-          rankingEl.innerHTML = "<div class='game-rank-item'>人数不足,本局结束</div>";
+          rankingEl.innerHTML = "<div class='game-rank-item'>\u4EBA\u6570\u4E0D\u8DB3,\u672C\u5C40\u7ED3\u675F</div>";
         }
         overOverlay.style.display = "flex";
-        log("🏁 游戏结束,查看排名!", "sys");
+        log("\uD83C\uDFC1 \u6E38\u620F\u7ED3\u675F,\u67E5\u770B\u6392\u540D!", "sys");
         break;
-
       case "full":
-        alert("房间已满(8 人),请稍后再来");
+        alert("\u623F\u95F4\u5DF2\u6EE1(8 \u4EBA),\u8BF7\u7A0D\u540E\u518D\u6765");
         break;
-
       case "system":
-        log(`<span class="sys">${esc(data.text)}</span>`, "sys");
+        log('<span class="sys">'.concat(esc(data.text), "</span>"), "sys");
         break;
-
       default:
         break;
     }
   }
-
-  /* —— WebSocket 连接 —— */
   function connect() {
-    const proto = location.protocol === "https:" ? "wss://" : "ws://";
+    var proto = location.protocol === "https:" ? "wss://" : "ws://";
     ws = new WebSocket(proto + location.host + "/ws");
-    ws.onopen = () => {
-      lobbyStatus.textContent = "✅ 已连接,请输入昵称加入房间";
-      log("已连接到房间服务器", "sys");
+    ws.onopen = function () {
+      lobbyStatus.textContent = "\u2705 \u5DF2\u8FDE\u63A5,\u8BF7\u8F93\u5165\u6635\u79F0\u52A0\u5165\u623F\u95F4";
+      log("\u5DF2\u8FDE\u63A5\u5230\u623F\u95F4\u670D\u52A1\u5668", "sys");
     };
-    ws.onmessage = (e) => {
-      try { onMessage(JSON.parse(e.data)); } catch (err) { /* 忽略坏消息 */ }
+    ws.onmessage = function (e) {
+      try {
+        onMessage(JSON.parse(e.data));
+      } catch (err) {}
     };
-    ws.onclose = () => {
+    ws.onclose = function () {
       if (roomEl.style.display !== "none") {
-        alert("连接已断开,即将刷新页面");
-        setTimeout(() => location.reload(), 1200);
+        alert("\u8FDE\u63A5\u5DF2\u65AD\u5F00,\u5373\u5C06\u5237\u65B0\u9875\u9762");
+        setTimeout(function () {
+          return location.reload();
+        }, 1200);
       } else {
-        lobbyStatus.textContent = "⚠️ 连接断开,正在重连…";
-        setTimeout(connect, 2000);
+        lobbyStatus.textContent = "\u26A0\uFE0F \u8FDE\u63A5\u65AD\u5F00,\u6B63\u5728\u91CD\u8FDE\u2026";
+        setTimeout(connect, 2e3);
       }
     };
-    ws.onerror = () => { /* onclose 处理 */ };
+    ws.onerror = function () {};
   }
-
   connect();
 })();

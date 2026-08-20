@@ -1,176 +1,155 @@
-/* ==========================================================================
-   《DY导航站》趣事广场脚本
-   ==========================================================================
-   功能:① 顶部新闻速递(精选热点资讯入口,静态);
-         ② 趣事动态:发布/加载(API 由 server.js 提供,data/fun.json),
-            登录态来自 account.js(window.Account),登录用户发布自动绑定
-            QQ 账号,未登录可匿名发布;动态保留 30 天,每 20 秒自动刷新。
-   ========================================================================== */
-
 (function () {
   "use strict";
 
-  const listEl = document.getElementById("fun-list");
-  const form = document.getElementById("fun-form");
-  const tip = document.getElementById("fun-empty");
-  const newsEl = document.getElementById("fun-news");
-
-  if (!listEl) return; // 非趣事页面直接跳过
-
-  /* —— 新闻速递(静态精选资讯入口) —— */
-  const NEWS = [
-    { name: "微博热搜", url: "https://s.weibo.com/top/summary", desc: "微博实时热搜榜", icon: "🔥" },
-    { name: "百度热搜", url: "https://top.baidu.com/board?tab=realtime", desc: "百度实时热点", icon: "🐻" },
-    { name: "知乎热榜", url: "https://www.zhihu.com/hot", desc: "知乎热议话题", icon: "🤔" },
-    { name: "抖音热点", url: "https://www.douyin.com/hot", desc: "抖音热门视频", icon: "🎬" },
-    { name: "今日头条", url: "https://www.toutiao.com", desc: "头条资讯", icon: "📰" },
-    { name: "腾讯新闻", url: "https://news.qq.com", desc: "腾讯新闻中心", icon: "🐧" },
-    { name: "网易新闻", url: "https://news.163.com", desc: "网易新闻", icon: "📰" },
-    { name: "人民网", url: "http://www.people.com.cn", desc: "权威时政新闻", icon: "🇨🇳" },
-  ];
+  var listEl = document.getElementById("fun-list");
+  var form = document.getElementById("fun-form");
+  var tip = document.getElementById("fun-empty");
+  var newsEl = document.getElementById("fun-news");
+  if (!listEl) return;
+  var NEWS = [{
+    name: "\u5FAE\u535A\u70ED\u641C",
+    url: "https://s.weibo.com/top/summary",
+    desc: "\u5FAE\u535A\u5B9E\u65F6\u70ED\u641C\u699C",
+    icon: "\uD83D\uDD25"
+  }, {
+    name: "\u767E\u5EA6\u70ED\u641C",
+    url: "https://top.baidu.com/board?tab=realtime",
+    desc: "\u767E\u5EA6\u5B9E\u65F6\u70ED\u70B9",
+    icon: "\uD83D\uDC3B"
+  }, {
+    name: "\u77E5\u4E4E\u70ED\u699C",
+    url: "https://www.zhihu.com/hot",
+    desc: "\u77E5\u4E4E\u70ED\u8BAE\u8BDD\u9898",
+    icon: "\uD83E\uDD14"
+  }, {
+    name: "\u6296\u97F3\u70ED\u70B9",
+    url: "https://www.douyin.com/hot",
+    desc: "\u6296\u97F3\u70ED\u95E8\u89C6\u9891",
+    icon: "\uD83C\uDFAC"
+  }, {
+    name: "\u4ECA\u65E5\u5934\u6761",
+    url: "https://www.toutiao.com",
+    desc: "\u5934\u6761\u8D44\u8BAF",
+    icon: "\uD83D\uDCF0"
+  }, {
+    name: "\u817E\u8BAF\u65B0\u95FB",
+    url: "https://news.qq.com",
+    desc: "\u817E\u8BAF\u65B0\u95FB\u4E2D\u5FC3",
+    icon: "\uD83D\uDC27"
+  }, {
+    name: "\u7F51\u6613\u65B0\u95FB",
+    url: "https://news.163.com",
+    desc: "\u7F51\u6613\u65B0\u95FB",
+    icon: "\uD83D\uDCF0"
+  }, {
+    name: "\u4EBA\u6C11\u7F51",
+    url: "http://www.people.com.cn",
+    desc: "\u6743\u5A01\u65F6\u653F\u65B0\u95FB",
+    icon: "\uD83C\uDDE8\uD83C\uDDF3"
+  }];
   if (newsEl) {
-    newsEl.innerHTML = NEWS.map(
-      (n) => `
-      <a class="fun-news-card" href="${n.url}" target="_blank" rel="noopener">
-        <span class="fun-news-icon">${n.icon}</span>
-        <span class="fun-news-body">
-          <span class="fun-news-name">${n.name}</span>
-          <span class="fun-news-desc">${n.desc}</span>
-        </span>
-        <span class="fun-news-arrow">→</span>
-      </a>`
-    ).join("");
+    newsEl.innerHTML = NEWS.map(function (n) {
+      return '\n      <a class="fun-news-card" href="'.concat(n.url, '" target="_blank" rel="noopener">\n        <span class="fun-news-icon">').concat(n.icon, '</span>\n        <span class="fun-news-body">\n          <span class="fun-news-name">').concat(n.name, '</span>\n          <span class="fun-news-desc">').concat(n.desc, "</span>\n        </span>\n        <span class=\"fun-news-arrow\">\u2192</span>\n      </a>");
+    }).join("");
   }
-
-  /* —— HTML 转义(防 XSS) —— */
   function esc(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
-
-  /* —— QQ 号脱敏显示:123****45 —— */
   function maskQQ(qq) {
-    const s = String(qq || "");
+    var s = String(qq || "");
     if (s.length <= 5) return s;
     return s.slice(0, 3) + "****" + s.slice(-2);
   }
-
-  /* —— 头像:登录用户显示 QQ 头像(加载失败回退首字符),匿名显示首字符 —— */
   function avatarHTML(m) {
-    const ch = esc((m.name || (m.qq ? "Q" : "匿")).charAt(0));
+    var ch = esc((m.name || (m.qq ? "Q" : "\u533F")).charAt(0));
     if (m.qq) {
-      const url = (window.Account && window.Account.avatarUrl)
-        ? window.Account.avatarUrl(m.qq)
-        : "https://q1.qlogo.cn/g?b=qq&nk=" + m.qq + "&s=100";
-      return `<span class="fun-avatar"><img src="${url}" alt="" onerror="this.remove()" /><span class="avatar-fallback">${ch}</span></span>`;
+      var url = window.Account && window.Account.avatarUrl ? window.Account.avatarUrl(m.qq) : "https://q1.qlogo.cn/g?b=qq&nk=" + m.qq + "&s=100";
+      return '<span class="fun-avatar"><img src="'.concat(url, '" alt="" onerror="this.remove()" /><span class="avatar-fallback">').concat(ch, "</span></span>");
     }
-    return `<span class="fun-avatar">${ch}</span>`;
+    return '<span class="fun-avatar">'.concat(ch, "</span>");
   }
-
-  /* —— 时间格式化:相对时间 —— */
   function fmtTime(t) {
-    const diff = Date.now() - t;
-    const min = 60 * 1000;
-    const hour = 60 * min;
-    const day = 24 * hour;
-    if (diff < min) return "刚刚";
-    if (diff < hour) return Math.floor(diff / min) + " 分钟前";
-    if (diff < day) return Math.floor(diff / hour) + " 小时前";
-    return Math.floor(diff / day) + " 天前";
+    var diff = Date.now() - t;
+    var min = 60 * 1e3;
+    var hour = 60 * min;
+    var day = 24 * hour;
+    if (diff < min) return "\u521A\u521A";
+    if (diff < hour) return Math.floor(diff / min) + " \u5206\u949F\u524D";
+    if (diff < day) return Math.floor(diff / hour) + " \u5C0F\u65F6\u524D";
+    return Math.floor(diff / day) + " \u5929\u524D";
   }
-
-  /* —— 渲染动态列表 —— */
   function render(list) {
-    list.sort((a, b) => (b.time || 0) - (a.time || 0)); // 最新在前
+    list.sort(function (a, b) {
+      return (b.time || 0) - (a.time || 0);
+    });
     if (!list.length) {
       listEl.innerHTML = "";
       if (tip) tip.style.display = "block";
       return;
     }
     if (tip) tip.style.display = "none";
-    listEl.innerHTML = list
-      .map((m) => {
-        const who = m.qq
-          ? `${esc(m.name || "QQ用户")} <span class="fun-qq">(QQ ${esc(maskQQ(m.qq))})</span>`
-          : esc(m.name || "匿名");
-        return `
-      <div class="fun-item">
-        <div class="fun-head">
-          ${avatarHTML(m)}
-          <span class="fun-name">${who}</span>
-          <span class="fun-time">${fmtTime(m.time || Date.now())}</span>
-        </div>
-        <div class="fun-text">${esc(m.text)}</div>
-      </div>`;
-      })
-      .join("");
+    listEl.innerHTML = list.map(function (m) {
+      var who = m.qq ? "".concat(esc(m.name || "QQ\u7528\u6237"), ' <span class="fun-qq">(QQ ').concat(esc(maskQQ(m.qq)), ")</span>") : esc(m.name || "\u533F\u540D");
+      return '\n      <div class="fun-item">\n        <div class="fun-head">\n          '.concat(avatarHTML(m), '\n          <span class="fun-name">').concat(who, '</span>\n          <span class="fun-time">').concat(fmtTime(m.time || Date.now()), '</span>\n        </div>\n        <div class="fun-text">').concat(esc(m.text), "</div>\n      </div>");
+    }).join("");
   }
-
-  /* —— 加载动态 —— */
   function load() {
-    fetch("/api/fun")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data && data.ok) render(data.posts || []);
-      })
-      .catch(() => {
-        if (tip) {
-          tip.innerHTML = "⚠️ 趣事加载失败,请确认服务端已更新(重启 server.js)";
-          tip.style.display = "block";
-        }
-      });
+    fetch("/api/fun").then(function (r) {
+      return r.json();
+    }).then(function (data) {
+      if (data && data.ok) render(data.posts || []);
+    }).catch(function () {
+      if (tip) {
+        tip.innerHTML = "\u26A0\uFE0F \u8DA3\u4E8B\u52A0\u8F7D\u5931\u8D25,\u8BF7\u786E\u8BA4\u670D\u52A1\u7AEF\u5DF2\u66F4\u65B0(\u91CD\u542F server.js)";
+        tip.style.display = "block";
+      }
+    });
   }
-
-  /* —— 发布动态 —— */
   if (form) {
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", function (e) {
       e.preventDefault();
-      const nameInput = form.querySelector("#fun-name");
-      const textInput = form.querySelector("#fun-text");
-      const btn = form.querySelector("#fun-submit");
-      const text = (textInput.value || "").trim();
+      var nameInput = form.querySelector("#fun-name");
+      var textInput = form.querySelector("#fun-text");
+      var btn = form.querySelector("#fun-submit");
+      var text = (textInput.value || "").trim();
       if (!text) {
         textInput.focus();
         return;
       }
       btn.disabled = true;
-      btn.textContent = "发布中…";
-
-      const body = { text };
-      const tk = window.Account ? window.Account.getToken() : null;
+      btn.textContent = "\u53D1\u5E03\u4E2D\u2026";
+      var body = {
+        text: text
+      };
+      var tk = window.Account ? window.Account.getToken() : null;
       if (tk) {
-        body.token = tk; // 登录用户发布绑定账号
+        body.token = tk;
       } else {
-        body.name = (nameInput.value || "").trim(); // 匿名发布
+        body.name = (nameInput.value || "").trim();
       }
-
       fetch("/api/fun", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data && data.ok) {
-            textInput.value = "";
-            render(data.posts || []);
-          } else {
-            alert(data.error || "发布失败,请重试");
-          }
-        })
-        .catch(() => alert("发布失败,请确认服务端已更新"))
-        .finally(() => {
-          btn.disabled = false;
-          btn.textContent = "🎉 发布趣事";
-        });
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      }).then(function (r) {
+        return r.json();
+      }).then(function (data) {
+        if (data && data.ok) {
+          textInput.value = "";
+          render(data.posts || []);
+        } else {
+          alert(data.error || "\u53D1\u5E03\u5931\u8D25,\u8BF7\u91CD\u8BD5");
+        }
+      }).catch(function () {
+        return alert("\u53D1\u5E03\u5931\u8D25,\u8BF7\u786E\u8BA4\u670D\u52A1\u7AEF\u5DF2\u66F4\u65B0");
+      }).finally(function () {
+        btn.disabled = false;
+        btn.textContent = "\uD83C\uDF89 \u53D1\u5E03\u8DA3\u4E8B";
+      });
     });
   }
-
-  /* —— 初始化:加载已有动态 + 每 20 秒自动刷新 —— */
   load();
-  setInterval(load, 20000);
+  setInterval(load, 2e4);
 })();

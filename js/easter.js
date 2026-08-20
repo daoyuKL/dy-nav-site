@@ -1,51 +1,30 @@
-/* ==========================================================================
-   《DY导航站》彩蛋
-   ==========================================================================
-   在任意搜索栏输入关键词 daoyuKL(不区分大小写),
-   触发「下载原神」彩蛋动画,进度跑满后跳转原神官网下载页。
-   ========================================================================== */
-
 (function () {
   "use strict";
 
-  const KEYWORD = "daoyuKL";
-  const TARGET_URL = "https://ys.mihoyo.com/main/"; // 原神官网(下载入口)
-  let triggered = false;
-
+  var KEYWORD = "daoyuKL";
+  var TARGET_URL = "https://ys.mihoyo.com/main/";
+  var triggered = false;
   function isMatch(v) {
     return v.trim().toLowerCase() === KEYWORD.toLowerCase();
   }
-
   function launch() {
     if (triggered) return;
     triggered = true;
-
-    /* —— 全屏彩蛋覆盖层 —— */
-    const ov = document.createElement("div");
+    var ov = document.createElement("div");
     ov.className = "easter-egg";
-    ov.innerHTML = `
-      <div class="ee-box">
-        <div class="ee-icon">🎮</div>
-        <div class="ee-title">正在下载《原神》…</div>
-        <div class="ee-bar"><div class="ee-fill"></div></div>
-        <div class="ee-text" id="ee-text">0%</div>
-        <div class="ee-sub">下载完成后将自动开始安装,请保持网络畅通</div>
-      </div>`;
+    ov.innerHTML = "\n      <div class=\"ee-box\">\n        <div class=\"ee-icon\">\uD83C\uDFAE</div>\n        <div class=\"ee-title\">\u6B63\u5728\u4E0B\u8F7D\u300A\u539F\u795E\u300B\u2026</div>\n        <div class=\"ee-bar\"><div class=\"ee-fill\"></div></div>\n        <div class=\"ee-text\" id=\"ee-text\">0%</div>\n        <div class=\"ee-sub\">\u4E0B\u8F7D\u5B8C\u6210\u540E\u5C06\u81EA\u52A8\u5F00\u59CB\u5B89\u88C5,\u8BF7\u4FDD\u6301\u7F51\u7EDC\u7545\u901A</div>\n      </div>";
     document.body.appendChild(ov);
-
-    /* —— 进度条动画 —— */
-    const fill = ov.querySelector(".ee-fill");
-    const text = ov.querySelector("#ee-text");
-    let p = 0;
-
-    const timer = setInterval(() => {
+    var fill = ov.querySelector(".ee-fill");
+    var text = ov.querySelector("#ee-text");
+    var p = 0;
+    var timer = setInterval(function () {
       p += Math.random() * 8 + 2.5;
       if (p >= 100) {
         p = 100;
         clearInterval(timer);
         fill.style.width = "100%";
-        text.textContent = "100% · 下载完成!正在打开安装页面…";
-        setTimeout(() => {
+        text.textContent = "100% \xB7 \u4E0B\u8F7D\u5B8C\u6210!\u6B63\u5728\u6253\u5F00\u5B89\u88C5\u9875\u9762\u2026";
+        setTimeout(function () {
           window.location.href = TARGET_URL;
         }, 1400);
       } else {
@@ -54,28 +33,24 @@
       }
     }, 110);
   }
-
-  /* —— 绑定首页搜索框(home-search) —— */
-  const home = document.getElementById("home-search");
+  var home = document.getElementById("home-search");
   if (home) {
-    home.addEventListener("input", () => {
+    home.addEventListener("input", function () {
       if (isMatch(home.value)) launch();
     });
-    home.addEventListener("keydown", (e) => {
+    home.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && isMatch(home.value)) {
         e.preventDefault();
         launch();
       }
     });
   }
-
-  /* —— 绑定工具/游戏页搜索框(search-input) —— */
-  const pageInput = document.getElementById("search-input");
+  var pageInput = document.getElementById("search-input");
   if (pageInput) {
-    pageInput.addEventListener("input", () => {
+    pageInput.addEventListener("input", function () {
       if (isMatch(pageInput.value)) launch();
     });
-    pageInput.addEventListener("keydown", (e) => {
+    pageInput.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && isMatch(pageInput.value)) {
         e.preventDefault();
         launch();

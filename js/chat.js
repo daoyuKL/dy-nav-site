@@ -1,170 +1,129 @@
-/* ==========================================================================
-   《DY导航站》聊天室脚本
-   ==========================================================================
-   功能:公共聊天室,消息保留 30 天自动清空(服务端 chat.json,存磁盘);
-         每 2 秒增量轮询新消息;登录用户发言自动署名,匿名可聊;
-         APK 内可选本地聊天记录(手机端离线历史,清除缓存可删除)。
-   ========================================================================== */
-
 (function () {
   "use strict";
 
-  const listEl = document.getElementById("chat-list");
-  const inputEl = document.getElementById("chat-input");
-  const sendBtn = document.getElementById("chat-send");
-  const loadingEl = document.getElementById("chat-loading");
-
-  if (!listEl) return; // 非聊天页面直接跳过
-
-  const POLL_MS = 2000; // 轮询间隔
-  let lastTime = 0; // 已渲染消息的最大时间(用于增量拉取 + 去重)
-  let allMsgs = []; // 本地累计消息(APK 手机端用于离线历史,上限 300 条)
-
-  /* —— HTML 转义(防 XSS) —— */
+  var listEl = document.getElementById("chat-list");
+  var inputEl = document.getElementById("chat-input");
+  var sendBtn = document.getElementById("chat-send");
+  var loadingEl = document.getElementById("chat-loading");
+  if (!listEl) return;
+  var POLL_MS = 2e3;
+  var lastTime = 0;
+  var allMsgs = [];
   function esc(s) {
-    return String(s)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
-
-  /* —— QQ 号脱敏显示:123****45 —— */
   function maskQQ(qq) {
-    const s = String(qq || "");
+    var s = String(qq || "");
     if (s.length <= 5) return s;
     return s.slice(0, 3) + "****" + s.slice(-2);
   }
-
-  /* —— 头像:登录用户显示 QQ 头像(加载失败回退首字符),匿名显示首字符 —— */
   function avatarHTML(m) {
-    const ch = esc((m.name || (m.qq ? "Q" : "匿")).charAt(0));
+    var ch = esc((m.name || (m.qq ? "Q" : "\u533F")).charAt(0));
     if (m.qq) {
-      const url = (window.Account && window.Account.avatarUrl)
-        ? window.Account.avatarUrl(m.qq)
-        : "https://q1.qlogo.cn/g?b=qq&nk=" + m.qq + "&s=100";
-      return `<span class="chat-avatar"><img src="${url}" alt="" onerror="this.remove()" /><span class="avatar-fallback">${ch}</span></span>`;
+      var url = window.Account && window.Account.avatarUrl ? window.Account.avatarUrl(m.qq) : "https://q1.qlogo.cn/g?b=qq&nk=" + m.qq + "&s=100";
+      return '<span class="chat-avatar"><img src="'.concat(url, '" alt="" onerror="this.remove()" /><span class="avatar-fallback">').concat(ch, "</span></span>");
     }
-    return `<span class="chat-avatar">${ch}</span>`;
+    return '<span class="chat-avatar">'.concat(ch, "</span>");
   }
-
-  /* —— 时间格式化 —— */
   function fmtTime(t) {
-    const diff = Date.now() - t;
-    const min = 60 * 1000;
-    const hour = 60 * min;
-    if (diff < 10 * 1000) return "刚刚";
-    if (diff < min) return Math.floor(diff / 1000) + " 秒前";
-    if (diff < hour) return Math.floor(diff / min) + " 分钟前";
-    return Math.floor(diff / hour) + " 小时前";
+    var diff = Date.now() - t;
+    var min = 60 * 1e3;
+    var hour = 60 * min;
+    if (diff < 10 * 1e3) return "\u521A\u521A";
+    if (diff < min) return Math.floor(diff / 1e3) + " \u79D2\u524D";
+    if (diff < hour) return Math.floor(diff / min) + " \u5206\u949F\u524D";
+    return Math.floor(diff / hour) + " \u5C0F\u65F6\u524D";
   }
-
-  /* —— 构造消息气泡 —— */
   function buildItem(m) {
-    const who = m.qq
-      ? `${esc(m.name || "QQ用户")} <span class="chat-qq">(QQ ${esc(maskQQ(m.qq))})</span>`
-      : esc(m.name || "匿名");
-    const div = document.createElement("div");
+    var who = m.qq ? "".concat(esc(m.name || "QQ\u7528\u6237"), ' <span class="chat-qq">(QQ ').concat(esc(maskQQ(m.qq)), ")</span>") : esc(m.name || "\u533F\u540D");
+    var div = document.createElement("div");
     div.className = "chat-item";
-    div.innerHTML = `
-      ${avatarHTML(m)}
-      <div class="chat-body">
-        <div class="chat-head">
-          <span class="chat-name">${who}</span>
-          <span class="chat-time">${fmtTime(m.time || Date.now())}</span>
-        </div>
-        <div class="chat-text">${esc(m.text)}</div>
-      </div>`;
+    div.innerHTML = "\n      ".concat(avatarHTML(m), '\n      <div class="chat-body">\n        <div class="chat-head">\n          <span class="chat-name">').concat(who, '</span>\n          <span class="chat-time">').concat(fmtTime(m.time || Date.now()), '</span>\n        </div>\n        <div class="chat-text">').concat(esc(m.text), "</div>\n      </div>");
     return div;
   }
-
   function isNearBottom() {
     return listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 60;
   }
-
   function scrollToBottom() {
     listEl.scrollTop = listEl.scrollHeight;
   }
-
-  /* —— 追加消息(去重) —— */
   function appendMessages(msgs) {
-    const fresh = (msgs || []).filter((m) => (m.time || 0) > lastTime);
+    var fresh = (msgs || []).filter(function (m) {
+      return (m.time || 0) > lastTime;
+    });
     if (!fresh.length) return;
-    const stick = isNearBottom();
-    fresh.forEach((m) => listEl.appendChild(buildItem(m)));
+    var stick = isNearBottom();
+    fresh.forEach(function (m) {
+      return listEl.appendChild(buildItem(m));
+    });
     if (stick) scrollToBottom();
-    lastTime = Math.max.apply(null, fresh.map((m) => m.time || 0));
+    lastTime = Math.max.apply(null, fresh.map(function (m) {
+      return m.time || 0;
+    }));
     if (loadingEl) loadingEl.style.display = "none";
-    /* 手机端:同步保存本地聊天记录(由 APK 注入的 window.ChatLocal 提供) */
     allMsgs = allMsgs.concat(fresh).slice(-300);
     if (window.ChatLocal) window.ChatLocal.save(allMsgs);
   }
-
-  /* —— 轮询新消息 —— */
   function poll() {
-    fetch("/api/chat?after=" + (lastTime - 1000)) // 1 秒重叠兜底,避免漏消息
-      .then((r) => r.json())
-      .then((data) => {
-        if (data && data.ok) appendMessages(data.messages);
-      })
-      .catch(() => {
-        /* 服务器连不上:APK 手机端展示本地历史(仅首次) */
-        if (lastTime === 0 && window.ChatLocal) {
-          const local = window.ChatLocal.load();
-          if (local && local.length) {
-            appendMessages(local);
-            if (loadingEl) {
-              loadingEl.textContent = "📱 离线模式 · 显示手机本地聊天记录(服务器未连接)";
-              loadingEl.style.display = "block";
-            }
+    fetch("/api/chat?after=" + (lastTime - 1e3)).then(function (r) {
+      return r.json();
+    }).then(function (data) {
+      if (data && data.ok) appendMessages(data.messages);
+    }).catch(function () {
+      if (lastTime === 0 && window.ChatLocal) {
+        var local = window.ChatLocal.load();
+        if (local && local.length) {
+          appendMessages(local);
+          if (loadingEl) {
+            loadingEl.textContent = "\uD83D\uDCF1 \u79BB\u7EBF\u6A21\u5F0F \xB7 \u663E\u793A\u624B\u673A\u672C\u5730\u804A\u5929\u8BB0\u5F55(\u670D\u52A1\u5668\u672A\u8FDE\u63A5)";
+            loadingEl.style.display = "block";
           }
         }
-      })
-      .finally(() => setTimeout(poll, POLL_MS));
+      }
+    }).finally(function () {
+      return setTimeout(poll, POLL_MS);
+    });
   }
-
-  /* —— 发送消息 —— */
   function send() {
-    const text = (inputEl.value || "").trim();
+    var text = (inputEl.value || "").trim();
     if (!text) {
       inputEl.focus();
       return;
     }
-    const body = { text };
-    const tk = window.Account ? window.Account.getToken() : null;
+    var body = {
+      text: text
+    };
+    var tk = window.Account ? window.Account.getToken() : null;
     if (tk) body.token = tk;
-
     sendBtn.disabled = true;
     fetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data && data.ok) {
-          inputEl.value = "";
-          appendMessages([data.message]);
-          scrollToBottom();
-        } else {
-          alert(data.error || "发送失败");
-        }
-      })
-      .catch(() => alert("发送失败,请确认服务端已更新"))
-      .finally(() => {
-        sendBtn.disabled = false;
-        inputEl.focus();
-      });
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json();
+    }).then(function (data) {
+      if (data && data.ok) {
+        inputEl.value = "";
+        appendMessages([data.message]);
+        scrollToBottom();
+      } else {
+        alert(data.error || "\u53D1\u9001\u5931\u8D25");
+      }
+    }).catch(function () {
+      return alert("\u53D1\u9001\u5931\u8D25,\u8BF7\u786E\u8BA4\u670D\u52A1\u7AEF\u5DF2\u66F4\u65B0");
+    }).finally(function () {
+      sendBtn.disabled = false;
+      inputEl.focus();
+    });
   }
-
   if (sendBtn) sendBtn.addEventListener("click", send);
   if (inputEl) {
-    inputEl.addEventListener("keydown", (e) => {
+    inputEl.addEventListener("keydown", function (e) {
       if (e.key === "Enter") send();
     });
   }
-
-  /* —— 启动:先拉全量,再开始轮询 —— */
   poll();
 })();
