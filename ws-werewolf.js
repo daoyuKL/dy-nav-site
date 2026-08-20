@@ -536,8 +536,9 @@ function scheduleBotActions(phase) {
       setTimeout(() => botAct("vote", b), 2000 + Math.random() * 6000);
     });
   } else if (phase === "discuss") {
+    // 每个存活人机必定发言一次(随机时间,活跃气氛)
     bots.filter((p) => p.alive).forEach((b) => {
-      if (Math.random() < 0.7) setTimeout(() => botChat(b), 2000 + Math.random() * 10000);
+      setTimeout(() => botChat(b), 2000 + Math.random() * 10000);
     });
   }
 }

@@ -14,6 +14,8 @@ const MIN_PLAYERS = 3; // 开始所需人数
 const ROUND_SECONDS = 75; // 每回合秒数
 const MAX_NAME = 12;
 const MAX_GUESS = 30;
+const KICK_SECONDS = 30; // 踢人投票时长(秒)
+const KICK_RATIO = 3 / 4; // 需所有真人 3/4 同意
 
 /* —— 词库 —— */
 const WORDS = [
@@ -147,6 +149,7 @@ const room = {
   secondsLeft: 0,
   roundOver: false, // 本轮是否已结算(防多人同时猜对导致跳轮)
   usedWords: [],
+  kickVote: null,   // 踢人投票 { targetId, targetName, needed, voters, votes, timer }
 };
 
 function sendJSON(conn, obj) { conn.send(obj); }
@@ -351,15 +354,27 @@ function addBots(n) {
   return count;
 }
 
-/* 移除玩家(真人掉线 / 房主移除人机共用),处理房主转让与画师离开 */
+/* 移除玩家(真人掉线 / 房主移除人机 / 投票踢出 共用)
+   真人离开时人机自动离场(腾出位置,避免堵住真人进房);
+   同时处理房主转让、画师离开与踢人投票结算 */
 function removePlayer(id) {
   const idx = room.players.findIndex((x) => x.id === id);
   if (idx < 0) return;
   const pl = room.players[idx];
   const wasDrawer = pl.id === room.drawerId;
   const wasOwner = pl.id === room.ownerId;
+  const wasHuman = !pl.bot;
   if (pl.bot && pl._timer) clearInterval(pl._timer);
   room.players.splice(idx, 1);
+
+  // 真人离开 → 人机自动离场
+  let botsLeft = 0;
+  if (wasHuman && room.players.some((x) => x.bot)) {
+    botsLeft = room.players.filter((x) => x.bot).length;
+    room.players.forEach((b) => { if (b.bot && b._timer) clearInterval(b._timer); });
+    room.players = room.players.filter((x) => !x.bot);
+  }
+
   // 房主离开:把房主转让给剩余第一个玩家
   if (wasOwner) {
     room.ownerId = room.players.length ? room.players[0].id : null;
@@ -367,16 +382,15 @@ function removePlayer(id) {
       broadcast({ t: "chat", name: "系统", text: "房主已转让给 " + byId(room.ownerId).name });
     }
   }
-  // 没有真人玩家时,人机全部离场
-  if (room.players.length && room.players.every((x) => x.bot)) {
-    room.players.forEach((b) => { if (b._timer) clearInterval(b._timer); });
-    room.players = [];
-    room.ownerId = null;
-  }
   broadcast({ t: "players", players: publicPlayers(), started: room.started, min: MIN_PLAYERS, ownerId: room.ownerId });
   broadcast({ t: "chat", name: "系统", text: pl.name + " 离开了房间" + (pl.bot ? "(人机)" : "") });
-  if (room.started && wasDrawer) {
-    // 画师跑了:跳过当前回合
+  if (botsLeft) {
+    broadcast({ t: "chat", name: "系统", text: "真人离开," + botsLeft + " 个人机已自动离场" });
+  }
+
+  // 画师离开(或被踢、人机画师被清):跳过当前回合
+  const drawerGone = room.started && room.drawerId && !byId(room.drawerId);
+  if (room.started && (wasDrawer || drawerGone)) {
     clearTimer();
     broadcast({ t: "drawer-left" });
     if (room.players.length >= 2) setTimeout(nextRound, 1500);
@@ -388,6 +402,81 @@ function removePlayer(id) {
     room.started = false;
     broadcast({ t: "over", ranking: [] });
   }
+
+  // 踢人投票:目标离开则取消;投票人离开则重新结算
+  if (room.kickVote && (room.kickVote.targetId === id || !byId(room.kickVote.targetId))) {
+    clearTimeout(room.kickVote.timer);
+    room.kickVote = null;
+    broadcast({ t: "kickvote-end", ok: false, targetId: id, targetName: pl.name, agree: 0, needed: 0, reason: "目标已离开房间" });
+  }
+  tryResolveKickVote();
+}
+
+/* ==========================================================================
+   踢人投票:房主发起,需所有真人 3/4 同意(不足 1 人按 1 人计)
+   ========================================================================== */
+
+function humanPlayers() {
+  return room.players.filter((p) => !p.bot);
+}
+
+/* 发起踢人投票(仅房主) */
+function startKickVote(initiatorId, targetId) {
+  const target = byId(targetId);
+  if (!target) return { ok: false, error: "目标玩家不存在" };
+  if (target.bot) return { ok: false, error: "人机无需投票,房主可直接移除" };
+  if (target.id === initiatorId) return { ok: false, error: "不能踢自己" };
+  if (target.id === room.ownerId) return { ok: false, error: "不能踢房主" };
+  if (room.kickVote) return { ok: false, error: "已有踢人投票在进行中" };
+  const voters = humanPlayers().map((p) => p.id);
+  const needed = Math.max(1, Math.ceil(voters.length * KICK_RATIO));
+  room.kickVote = {
+    targetId: target.id,
+    targetName: target.name,
+    needed,
+    voters,
+    votes: {},
+    timer: setTimeout(resolveKickVote, KICK_SECONDS * 1000),
+  };
+  broadcast({
+    t: "kickvote-start",
+    targetId: target.id,
+    targetName: target.name,
+    needed,
+    humans: voters.length,
+    seconds: KICK_SECONDS,
+  });
+  return { ok: true };
+}
+
+/* 真人投票(每人一票,投了不能改) */
+function castKickVote(p, agree) {
+  const kv = room.kickVote;
+  if (!kv || !kv.voters.includes(p.id)) return;
+  if (kv.votes[p.id] !== undefined) return;
+  kv.votes[p.id] = !!agree;
+  broadcast({ t: "kickvote-update", votes: kv.votes, needed: kv.needed });
+  tryResolveKickVote();
+}
+
+/* 所有仍在房的真人投完票 → 立即结算 */
+function tryResolveKickVote() {
+  const kv = room.kickVote;
+  if (!kv) return;
+  const remaining = kv.voters.filter((id) => byId(id));
+  if (remaining.every((id) => kv.votes[id] !== undefined)) resolveKickVote();
+}
+
+/* 结算投票:同意数 ≥ 需要数则踢出 */
+function resolveKickVote() {
+  const kv = room.kickVote;
+  if (!kv) return;
+  clearTimeout(kv.timer);
+  room.kickVote = null;
+  const agree = Object.values(kv.votes).filter(Boolean).length;
+  const ok = agree >= kv.needed;
+  broadcast({ t: "kickvote-end", ok, targetId: kv.targetId, targetName: kv.targetName, agree, needed: kv.needed });
+  if (ok) setTimeout(() => removePlayer(kv.targetId), 800); // 稍等片刻,让所有人看到结果
 }
 
 /* ==========================================================================
@@ -513,6 +602,25 @@ function handleMessage(conn, raw) {
       }
       const t = byId(String(msg.id || ""));
       if (t && t.bot) removePlayer(t.id);
+      return;
+    }
+
+    /* —— 发起踢人投票(仅房主) —— */
+    case "kick": {
+      if (!p) return;
+      if (p.id !== room.ownerId) {
+        conn.send({ t: "system", text: "只有房主可以发起踢人投票" });
+        return;
+      }
+      const r = startKickVote(p.id, String(msg.target || ""));
+      if (!r.ok) conn.send({ t: "system", text: r.error });
+      return;
+    }
+
+    /* —— 踢人投票(真人每人一票) —— */
+    case "kickvote": {
+      if (!p || p.bot) return;
+      castKickVote(p, !!msg.agree);
       return;
     }
 

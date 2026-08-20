@@ -35,6 +35,11 @@
   const rankingEl = document.getElementById("game-ranking");
   const restartBtn = document.getElementById("game-restart-btn");
   const overCloseBtn = document.getElementById("game-over-close");
+  const kickOverlay = document.getElementById("game-kick-overlay");
+  const kickText = document.getElementById("game-kick-text");
+  const kickProgress = document.getElementById("game-kick-progress");
+  const kickAgreeBtn = document.getElementById("game-kick-agree");
+  const kickAgainstBtn = document.getElementById("game-kick-against");
 
   if (!canvas) return; // 非游戏页面
 
@@ -102,6 +107,9 @@
         const rmBtn = p.bot && myId === ownerId
           ? `<button class="gp-bot-remove" data-id="${p.id}" title="移除人机">✕</button>`
           : "";
+        const kickBtn = !p.bot && myId === ownerId && p.id !== myId && p.id !== ownerId
+          ? `<button class="gp-kick" data-id="${p.id}" title="发起踢人投票">踢</button>`
+          : "";
         const av = p.qq
           ? `<img class="gp-avatar" src="${(window.Account && window.Account.avatarUrl) ? window.Account.avatarUrl(p.qq) : "https://q1.qlogo.cn/g?b=qq&nk=" + p.qq + "&s=100"}" alt="" onerror="this.remove()" />`
           : `<span class="gp-avatar">${esc(p.name.charAt(0))}</span>`;
@@ -110,6 +118,7 @@
           ${av}
           <span class="gp-name">${esc(p.name)}${me}${crown}${role}${botTag}</span>
           ${rmBtn}
+          ${kickBtn}
           <span class="gp-score">${p.score} 分</span>
         </div>`;
       })
@@ -303,11 +312,25 @@
   /* —— 开始/再来一局 —— */
   if (startBtn) startBtn.addEventListener("click", () => send({ t: "start" }));
   if (botBtn) botBtn.addEventListener("click", () => send({ t: "addbot", n: 1 }));
-  // 移除人机(仅房主可见按钮)
+  // 移除人机 / 发起踢人投票(仅房主可见按钮)
   playerListEl.addEventListener("click", (e) => {
-    const b = e.target.closest(".gp-bot-remove");
-    if (b) send({ t: "removebot", id: b.dataset.id });
+    const rb = e.target.closest(".gp-bot-remove");
+    if (rb) { send({ t: "removebot", id: rb.dataset.id }); return; }
+    const kb = e.target.closest(".gp-kick");
+    if (kb) send({ t: "kick", target: kb.dataset.id });
   });
+
+  /* —— 踢人投票 —— */
+  let myKickVoted = false;
+  function castKickVote(agree) {
+    if (myKickVoted) return;
+    myKickVoted = true;
+    send({ t: "kickvote", agree });
+    if (kickAgreeBtn) kickAgreeBtn.disabled = true;
+    if (kickAgainstBtn) kickAgainstBtn.disabled = true;
+  }
+  if (kickAgreeBtn) kickAgreeBtn.addEventListener("click", () => castKickVote(true));
+  if (kickAgainstBtn) kickAgainstBtn.addEventListener("click", () => castKickVote(false));
   if (restartBtn) restartBtn.addEventListener("click", () => {
     overOverlay.style.display = "none";
     send({ t: "restart" });
@@ -418,6 +441,28 @@
 
       case "drawer-left":
         log("画师离开了,跳过当前回合", "sys");
+        break;
+
+      case "kickvote-start":
+        myKickVoted = false;
+        if (kickAgreeBtn) kickAgreeBtn.disabled = false;
+        if (kickAgainstBtn) kickAgainstBtn.disabled = false;
+        kickText.textContent = `房主发起投票:踢出「${esc(data.targetName)}」?`;
+        kickProgress.textContent = `需要 ${data.needed}/${data.humans} 名真人同意 · ${data.seconds}s 内投票`;
+        kickOverlay.style.display = "flex";
+        break;
+
+      case "kickvote-update": {
+        const votes = data.votes || {};
+        const agree = Object.values(votes).filter(Boolean).length;
+        kickProgress.textContent = `需要 ${data.needed} 票同意 · 已同意 ${agree} 票`;
+        break;
+      }
+
+      case "kickvote-end":
+        kickOverlay.style.display = "none";
+        if (data.ok) log(`🗳️ <b>${esc(data.targetName)}</b> 被投票踢出房间`, "err");
+        else log(`🗳️ 踢出 <b>${esc(data.targetName)}</b> 未通过(同意 ${data.agree}/${data.needed})${data.reason ? " · " + esc(data.reason) : ""}`, "sys");
         break;
 
       case "chat":
