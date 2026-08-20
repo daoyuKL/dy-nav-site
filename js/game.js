@@ -346,7 +346,7 @@
     if (isDrawer) {
       canvasTip.textContent = "🎨 你正在画!请画出你的词";
     } else if (started) {
-      canvasTip.textContent = "👀 看画猜词,在右侧输入答案";
+      canvasTip.textContent = "👀 看画猜词,输入答案猜对 +10 分";
     } else {
       canvasTip.textContent = "";
     }
