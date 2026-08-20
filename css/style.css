@@ -1152,6 +1152,41 @@ img { max-width: 100%; display: block; }
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
 
+/* —— 登录教程(可折叠) —— */
+.mp-mine-help {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.mp-mine-help summary {
+  font-weight: 700;
+  color: var(--primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.mp-mine-help-body {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  cursor: default;
+}
+
+.mh-step {
+  line-height: 1.6;
+}
+
+.mh-warn {
+  margin-top: 4px;
+  color: var(--danger);
+  font-size: 0.72rem;
+}
+
 /* ==========================================================================
    彩蛋:下载原神
    ========================================================================== */

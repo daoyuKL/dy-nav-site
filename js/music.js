@@ -100,7 +100,19 @@
       <!-- 我的(登录 / 我的歌单) -->
       <div class="mp-tab-panel" data-panel="mine" style="display:none;">
         <div class="mp-mine-login" id="mp-mine-login">
-          <div class="mp-mine-tip">粘贴网易云网页版的 <b>MUSIC_U</b> 即可登录<br/>（获取方法:电脑打开 music.163.com 登录后按 F12 → 应用/Application → Cookies → music.163.com → 复制 MUSIC_U 的值）</div>
+          <div class="mp-mine-tip">粘贴网易云网页版的 <b>MUSIC_U</b> 即可登录,查看自己的歌单。</div>
+          <details class="mp-mine-help">
+            <summary>📖 怎么获取 MUSIC_U?(点击展开)</summary>
+            <div class="mp-mine-help-body">
+              <div class="mh-step"><b>1.</b> 电脑浏览器打开 <a href="https://music.163.com" target="_blank" rel="noopener">music.163.com</a> 并登录你的网易云账号</div>
+              <div class="mh-step"><b>2.</b> 按键盘 <b>F12</b> 打开开发者工具</div>
+              <div class="mh-step"><b>3.</b> 顶部选「<b>应用 / Application</b>」,左侧选「<b>Cookies</b>」</div>
+              <div class="mh-step"><b>4.</b> 展开 <b>https://music.163.com</b> → 找到 <b>MUSIC_U</b> 那一行</div>
+              <div class="mh-step"><b>5.</b> 双击 <b>Value</b> 全选复制整串内容</div>
+              <div class="mh-step"><b>6.</b> 粘贴到下面输入框 → 点「登录」</div>
+              <div class="mh-warn">⚠️ MUSIC_U 是登录凭证,<b>不要发给陌生人</b>;失效后重新复制一次即可。</div>
+            </div>
+          </details>
           <textarea class="mp-mine-input" id="mp-mine-musicu" rows="2" placeholder="粘贴 MUSIC_U 值…"></textarea>
           <button class="mp-search-go" type="button" id="mp-mine-login-btn">登录</button>
         </div>
