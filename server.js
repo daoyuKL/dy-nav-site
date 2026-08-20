@@ -16,6 +16,7 @@
          留言仅保留最近 7 天,超过自动清空(即"每 7 天重置")。
    ========================================================================== */
 const http = require("http");
+const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -104,6 +105,66 @@ function readBody(req, limit, cb) {
 function sendJSON(res, status, obj) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(obj));
+}
+
+/* ==========================================================================
+   网易云音乐搜索代理
+   浏览器直接请求 music.163.com 会被跨域(CORS)拦截,由本服务器转发。
+   前端调用:GET /api/music/search?q=关键词
+   ========================================================================== */
+function handleMusicSearch(res, rawUrl) {
+  const m = (rawUrl || "").match(/[?&]q=([^&]*)/);
+  const kw = m ? decodeURIComponent(m[1]).trim().slice(0, 50) : "";
+  if (!kw) return sendJSON(res, 400, { ok: false, error: "请输入搜索关键词" });
+
+  const api =
+    "https://music.163.com/api/search/get/web?s=" +
+    encodeURIComponent(kw) +
+    "&type=1&limit=20";
+  let done = false;
+  const sendOnce = (code, obj) => {
+    if (done) return;
+    done = true;
+    sendJSON(res, code, obj);
+  };
+
+  const req = https.get(
+    api,
+    {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        Referer: "https://music.163.com/",
+      },
+      timeout: 8000,
+    },
+    (r) => {
+      const chunks = [];
+      r.on("data", (c) => chunks.push(c));
+      r.on("end", () => {
+        try {
+          const d = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+          const songs = (d && d.result && d.result.songs) || [];
+          const list = songs.slice(0, 20).map((s) => ({
+            id: s.id,
+            name: s.name || "未知歌曲",
+            artist: (s.artists || []).map((a) => a.name).join(" / "),
+            album: (s.album && s.album.name) || "",
+          }));
+          sendOnce(200, { ok: true, songs: list });
+        } catch (e) {
+          sendOnce(502, { ok: false, error: "解析网易云返回数据失败" });
+        }
+      });
+    }
+  );
+  req.on("timeout", () => {
+    req.destroy();
+    sendOnce(504, { ok: false, error: "请求网易云超时,请稍后再试" });
+  });
+  req.on("error", (e) => {
+    sendOnce(502, { ok: false, error: "搜索失败:" + e.message });
+  });
 }
 
 /* ==========================================================================
@@ -442,6 +503,12 @@ loadSessions();
 
 const server = http.createServer((req, res) => {
   let url = decodeURIComponent((req.url || "/").split("?")[0]);
+
+  /* 网易云搜索代理(需要 query,单独处理) */
+  if (url === "/api/music/search") {
+    handleMusicSearch(res, req.url);
+    return;
+  }
 
   /* API 优先处理 */
   if (url.startsWith("/api/")) {
