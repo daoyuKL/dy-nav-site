@@ -1,8 +1,5 @@
-# 运行数据(部署后自动生成,不应入库)
-messages.json
-users.json
-chat.json
-sessions.json
+# 运行数据(部署后自动生成,不应入库;云平台用 Volume 挂载 data/ 持久化)
+data/
 
 # 依赖
 node_modules/

@@ -24,10 +24,15 @@ const { handleUpgrade: handleWerewolfUpgrade } = require("./ws-werewolf"); // �
 
 const ROOT = __dirname;
 const PORT = process.env.PORT || 8080; // 云平台会注入 PORT 环境变量,本地默认 8080
-const MESSAGES_FILE = path.join(ROOT, "messages.json");
-const USERS_FILE = path.join(ROOT, "users.json");
-const CHAT_FILE = path.join(ROOT, "chat.json");
-const SESSIONS_FILE = path.join(ROOT, "sessions.json");
+
+/* 数据目录:所有运行数据放在 data/ 下,方便云平台挂载持久化磁盘(Volume)
+   Zeabur 部署时把 Volume 挂载到 /app/data,重新部署数据不丢 */
+const DATA_DIR = path.join(ROOT, "data");
+try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) { /* 忽略 */ }
+const MESSAGES_FILE = path.join(DATA_DIR, "messages.json");
+const USERS_FILE = path.join(DATA_DIR, "users.json");
+const CHAT_FILE = path.join(DATA_DIR, "chat.json");
+const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
 
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 留言保留 7 天
 const MAX_MESSAGES = 500; // 最多保留条数(防刷屏)
