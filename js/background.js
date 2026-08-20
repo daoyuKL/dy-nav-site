@@ -89,7 +89,8 @@
     video.autoplay = true;
     video.playsInline = true;
     video.setAttribute("playsinline", "");
-    video.setAttribute("preload", "auto");
+    // metadata:切页时只读视频信息不下载全部数据,避免大文件拖慢页面
+    video.setAttribute("preload", "metadata");
     layer.appendChild(video);
     layer.classList.add("bg-video");
     loadVideo(videoSrcForMode());

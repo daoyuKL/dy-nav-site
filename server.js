@@ -463,10 +463,18 @@ const server = http.createServer((req, res) => {
       return;
     }
     const ext = path.extname(file).toLowerCase();
-    res.writeHead(200, {
+    const headers = {
       "Content-Type": TYPES[ext] || "application/octet-stream",
       "Content-Length": st.size,
-    });
+    };
+    // 缓存策略:HTML 不缓存(保持最新);css/js/图片/视频/音频缓存 7 天
+    // (关键:视频 4MB+,不缓存会导致每次切页重新下载,加载极慢)
+    if (ext === ".html") {
+      headers["Cache-Control"] = "no-cache";
+    } else {
+      headers["Cache-Control"] = "public, max-age=604800";
+    }
+    res.writeHead(200, headers);
     fs.createReadStream(file).pipe(res);
   });
 });
