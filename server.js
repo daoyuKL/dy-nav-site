@@ -74,9 +74,15 @@ function readJSON(file, fallback) {
   }
 }
 
+/* 异步写文件(不阻塞事件循环;数据以内存为准,文件仅作持久化备份) */
 function writeJSON(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
+  fs.writeFile(file, JSON.stringify(data, null, 2), "utf8", (e) => {
+    if (e) console.error("[writeJSON]", file, e.message);
+  });
 }
+
+/* 内存缓存:避免每次请求同步读磁盘阻塞事件循环(多人轮询时性能关键) */
+const cache = { messages: null, users: null, chat: null };
 
 /* 读取 POST 请求体(带大小限制) */
 function readBody(req, limit, cb) {
@@ -105,10 +111,13 @@ function sendJSON(res, status, obj) {
    ========================================================================== */
 
 function loadMessages() {
-  const list = readJSON(MESSAGES_FILE, []);
-  if (!Array.isArray(list)) return [];
+  if (cache.messages === null) {
+    const list = readJSON(MESSAGES_FILE, []);
+    cache.messages = Array.isArray(list) ? list : [];
+  }
   const now = Date.now();
-  return list.filter((m) => now - (m.time || 0) < MAX_AGE);
+  cache.messages = cache.messages.filter((m) => now - (m.time || 0) < MAX_AGE);
+  return cache.messages;
 }
 
 function saveMessages(list) {
@@ -116,7 +125,8 @@ function saveMessages(list) {
   const fresh = list
     .filter((m) => now - (m.time || 0) < MAX_AGE)
     .slice(-MAX_MESSAGES);
-  writeJSON(MESSAGES_FILE, fresh);
+  cache.messages = fresh; // 更新内存
+  writeJSON(MESSAGES_FILE, fresh); // 异步落盘
   return fresh;
 }
 
@@ -125,10 +135,13 @@ function saveMessages(list) {
    ========================================================================== */
 
 function loadChat() {
-  const list = readJSON(CHAT_FILE, []);
-  if (!Array.isArray(list)) return [];
+  if (cache.chat === null) {
+    const list = readJSON(CHAT_FILE, []);
+    cache.chat = Array.isArray(list) ? list : [];
+  }
   const now = Date.now();
-  return list.filter((m) => now - (m.time || 0) < CHAT_TTL);
+  cache.chat = cache.chat.filter((m) => now - (m.time || 0) < CHAT_TTL);
+  return cache.chat;
 }
 
 function saveChat(list) {
@@ -136,6 +149,7 @@ function saveChat(list) {
   const fresh = list
     .filter((m) => now - (m.time || 0) < CHAT_TTL)
     .slice(-MAX_CHAT);
+  cache.chat = fresh;
   writeJSON(CHAT_FILE, fresh);
   return fresh;
 }
@@ -145,11 +159,15 @@ function saveChat(list) {
    ========================================================================== */
 
 function loadUsers() {
-  const list = readJSON(USERS_FILE, []);
-  return Array.isArray(list) ? list : [];
+  if (cache.users === null) {
+    const list = readJSON(USERS_FILE, []);
+    cache.users = Array.isArray(list) ? list : [];
+  }
+  return cache.users;
 }
 
 function saveUsers(list) {
+  cache.users = list;
   writeJSON(USERS_FILE, list);
 }
 
