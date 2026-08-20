@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>聊天室 · DY导航站</title>
-  <meta name="description" content="DY导航站聊天室,畅所欲言" />
+  <title>趣事广场 · DY导航站</title>
+  <meta name="description" content="DY导航站趣事广场:新闻速递 + 大家分享的趣事" />
   <link rel="stylesheet" href="css/style.css?v=3" />
 </head>
 <body>
@@ -56,26 +56,51 @@
   </nav>
 
   <header class="hero container" style="padding-bottom: 8px;">
-    <h1>💬 聊天室</h1>
-    <p>和大家聊聊天吧 —— 聊天记录仅保留 8 小时,到期自动清空。</p>
+    <h1>🎉 趣事广场</h1>
+    <p>看看新鲜事,分享你的趣事 —— 动态保留 30 天,登录后发布自动署名。</p>
   </header>
 
   <main class="container">
-    <div class="chat-box">
-      <div class="chat-list" id="chat-list">
-        <div class="chat-loading" id="chat-loading">正在连接聊天室…</div>
+
+    <!-- 新闻速递 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="section-title"><span class="emoji">📰</span>新闻速递</div>
+        <div class="section-sub">热点资讯入口,点开即看</div>
       </div>
-      <div class="chat-bar">
-        <input class="chat-input" id="chat-input" type="text" maxlength="200" placeholder="说点什么…(最多 200 字,回车发送)" autocomplete="off" />
-        <button class="chat-send" id="chat-send" type="button">发送</button>
+      <div class="fun-news-grid" id="fun-news"></div>
+    </section>
+
+    <!-- 趣事动态 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="section-title"><span class="emoji">💬</span>大家发的趣事</div>
+        <div class="section-sub">分享你的趣事,动态保留 30 天</div>
       </div>
-      <div class="chat-hint">💡 聊天记录仅保留 8 小时;登录后发言自动署名</div>
-    </div>
+
+      <!-- 发布表单 -->
+      <form class="fun-form" id="fun-form">
+        <textarea class="fun-textarea" id="fun-text" maxlength="200" rows="3" placeholder="分享一件趣事吧…(最多 200 字)" autocomplete="off"></textarea>
+        <div class="fun-form-row">
+          <input class="fun-name-input" id="fun-name" type="text" maxlength="20" placeholder="匿名昵称(登录后自动署名)" autocomplete="off" />
+          <button class="fun-submit" id="fun-submit" type="submit">🎉 发布趣事</button>
+        </div>
+        <div class="fun-form-hint">💡 登录后发布自动署名;内容请遵守法律法规</div>
+      </form>
+
+      <!-- 动态列表 -->
+      <div class="fun-list" id="fun-list"></div>
+      <div class="empty" id="fun-empty" style="display:none;">
+        <div class="big">🎈</div>
+        <p>还没有趣事,快来分享第一个!</p>
+      </div>
+    </section>
+
   </main>
 
   <footer class="footer">
     <div class="container">
-      <p>💬 DY导航站 · <a href="contact.html">联系我</a> 提出建议</p>
+      <p>🎉 DY导航站 · <a href="contact.html">联系我</a> 提出建议</p>
       <p style="margin-top:4px">© <span data-year></span> All rights reserved.</p>
     </div>
   </footer>
@@ -88,6 +113,6 @@
   <script src="js/easter.js?v=3"></script>
   <script src="js/notice.js?v=3"></script>
   <script src="js/account.js?v=3"></script>
-  <script src="js/chat.js?v=3"></script>
+  <script src="js/fun.js?v=3"></script>
 </body>
 </html>

@@ -5,6 +5,9 @@
    留言板 API:
      GET  /api/messages        -> 返回留言列表(自动清理超过 7 天的留言)
      POST /api/messages        -> 提交留言 { name, text, token? }
+   趣事 API(用户动态,保留 30 天):
+     GET  /api/fun             -> 返回趣事动态列表(自动清理超过 30 天的动态)
+     POST /api/fun             -> 发布动态 { name, text, token? }
    ==========================================================================
    账号 API(QQ 号当账号的简化方案,无需腾讯审核):
      POST /api/register  { qq, password, nickname? } -> 注册并自动登录
@@ -34,6 +37,7 @@ const MESSAGES_FILE = path.join(DATA_DIR, "messages.json");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const CHAT_FILE = path.join(DATA_DIR, "chat.json");
 const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
+const FUN_FILE = path.join(DATA_DIR, "fun.json");
 
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 留言保留 7 天
 const MAX_MESSAGES = 500; // 最多保留条数(防刷屏)
@@ -43,6 +47,11 @@ const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 登录态有效 30 天(持久�
 const CHAT_TTL = 8 * 60 * 60 * 1000; // 聊天消息保留 8 小时
 const MAX_CHAT = 1000; // 聊天最多保留条数(防刷屏)
 const MAX_CHAT_TEXT = 200; // 单条聊天消息最长字符数
+
+/* 趣事广场:用户动态保留 30 天 */
+const FUN_TTL = 30 * 24 * 60 * 60 * 1000; // 趣事动态保留 30 天
+const MAX_FUN = 300; // 趣事最多保留条数(防刷屏)
+const MAX_FUN_TEXT = 200; // 单条趣事最长字符数
 
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -83,7 +92,7 @@ function writeJSON(file, data) {
 }
 
 /* 内存缓存:避免每次请求同步读磁盘阻塞事件循环(多人轮询时性能关键) */
-const cache = { messages: null, users: null, chat: null };
+const cache = { messages: null, users: null, chat: null, fun: null };
 
 /* 读取 POST 请求体(带大小限制) */
 function readBody(req, limit, cb) {
@@ -411,6 +420,30 @@ function saveChat(list) {
 }
 
 /* ==========================================================================
+   趣事广场(用户动态,保留 30 天)
+   ========================================================================== */
+
+function loadFun() {
+  if (cache.fun === null) {
+    const list = readJSON(FUN_FILE, []);
+    cache.fun = Array.isArray(list) ? list : [];
+  }
+  const now = Date.now();
+  cache.fun = cache.fun.filter((p) => now - (p.time || 0) < FUN_TTL);
+  return cache.fun;
+}
+
+function saveFun(list) {
+  const now = Date.now();
+  const fresh = list
+    .filter((p) => now - (p.time || 0) < FUN_TTL)
+    .slice(-MAX_FUN);
+  cache.fun = fresh; // 更新内存
+  writeJSON(FUN_FILE, fresh); // 异步落盘
+  return fresh;
+}
+
+/* ==========================================================================
    账号系统(QQ 号当账号)
    ========================================================================== */
 
@@ -679,9 +712,50 @@ function handleChat(req, res) {
   sendJSON(res, 405, { ok: false, error: "Method Not Allowed" });
 }
 
+/* —— 趣事:GET 列表 / POST 发布 —— */
+function handleFun(req, res) {
+  if (req.method === "GET") {
+    sendJSON(res, 200, { ok: true, posts: loadFun() });
+    return;
+  }
+  if (req.method === "POST") {
+    readBody(req, 16 * 1024, (err, body) => {
+      if (err) return sendJSON(res, 413, { ok: false, error: "Payload Too Large" });
+      let data;
+      try {
+        data = JSON.parse(body || "{}");
+      } catch (e) {
+        return sendJSON(res, 400, { ok: false, error: "Bad JSON" });
+      }
+      const text = String(data.text || "").trim().slice(0, MAX_FUN_TEXT);
+      if (!text) return sendJSON(res, 400, { ok: false, error: "趣事内容不能为空" });
+
+      const list = loadFun();
+      const user = userByToken(String(data.token || ""));
+      if (user) {
+        // 登录用户发布:绑定 QQ 账号
+        list.push({
+          name: (user.nickname || "QQ用户").slice(0, MAX_NAME),
+          text,
+          time: Date.now(),
+          qq: user.qq,
+        });
+      } else {
+        // 未登录:匿名发布
+        const name = String(data.name || "匿名").trim().slice(0, MAX_NAME);
+        list.push({ name: name || "匿名", text, time: Date.now() });
+      }
+      sendJSON(res, 200, { ok: true, posts: saveFun(list) });
+    });
+    return;
+  }
+  sendJSON(res, 405, { ok: false, error: "Method Not Allowed" });
+}
+
 /* —— API 路由 —— */
 function handleApi(req, res, url) {
   if (url === "/api/messages") return handleMessages(req, res), true;
+  if (url === "/api/fun") return handleFun(req, res), true;
   if (url === "/api/chat") return handleChat(req, res), true;
   if (url === "/api/register") return handleRegister(req, res), true;
   if (url === "/api/login") return handleLogin(req, res), true;
