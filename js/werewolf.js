@@ -257,6 +257,8 @@
 
       case "action-ok":
         log(`✅ 已行动:${data.act}`, "sys");
+        if (data.act === "save") witchSaveLeft = false;
+        if (data.act === "poison") witchPoisonLeft = false;
         break;
 
       case "seer-result":

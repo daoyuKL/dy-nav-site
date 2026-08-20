@@ -143,6 +143,7 @@ const room = {
   word: "",
   timer: null,
   secondsLeft: 0,
+  roundOver: false, // 本轮是否已结算(防多人同时猜对导致跳轮)
   usedWords: [],
 };
 
@@ -181,6 +182,7 @@ function clearTimer() {
 /* 开始下一回合 */
 function nextRound() {
   clearTimer();
+  room.roundOver = false; // 新一轮开始,重置结算标志
   if (!room.started || !room.players.length) {
     // 游戏未开始或房间已没人:安全退出(防止空房间崩溃)
     room.started = false;
@@ -210,8 +212,11 @@ function nextRound() {
     room.secondsLeft--;
     if (room.secondsLeft <= 0) {
       clearTimer();
-      broadcast({ t: "timeout", answer: room.word, drawer: room.drawerId });
-      setTimeout(nextRound, 3500);
+      if (!room.roundOver) { // 超时结算(猜对优先,两者互斥)
+        room.roundOver = true;
+        broadcast({ t: "timeout", answer: room.word, drawer: room.drawerId });
+        setTimeout(nextRound, 3500);
+      }
     } else {
       broadcast({ t: "tick", seconds: room.secondsLeft });
     }
@@ -322,9 +327,11 @@ function handleMessage(conn, raw) {
     /* —— 猜词 —— */
     case "guess": {
       if (!p || !room.started || isDrawer(conn)) return;
+      if (room.roundOver) return; // 本轮已结算,防多人同时猜对跳轮
       const text = String(msg.text || "").trim().slice(0, MAX_GUESS);
       if (!text) return;
       if (text === room.word || text.replace(/\s+/g, "") === room.word) {
+        room.roundOver = true; // 锁定结算,后续猜对不再触发下一轮
         p.score += 10;
         const drawer = byId(room.drawerId);
         if (drawer) drawer.score += 5;
@@ -337,7 +344,7 @@ function handleMessage(conn, raw) {
           scores: publicPlayers(),
           drawer: room.drawerId,
         });
-        setTimeout(nextRound, 3500);
+        setTimeout(() => { room.roundOver = false; nextRound(); }, 3500);
       } else {
         conn.send({ t: "result", ok: false });
       }

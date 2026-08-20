@@ -117,13 +117,15 @@ const room = {
   phase: "lobby", // lobby|kill|seer|witch|shoot|discuss|vote|over
   timer: null,
   nightNo: 0,
-  wolfVotes: {},   // wolfId -> targetId
+  wolfVotes: {},   // wolfId -> targetId(每狼一票,投了不能改)
   seerResult: null,
+  seerUsed: false,       // 预言家本晚是否已查验(每晚一次)
   saveTarget: null,
   poisonTarget: null,
   killedTonight: null,
   witchHasSave: true,
   witchHasPoison: true,
+  witchUsedTonight: false, // 女巫本晚是否已用药(每晚只能用一种药一次)
   hunterShots: {}, // hunterId -> targetId
   votes: {},       // voterId -> targetId
   lastDeaths: [],  // 上轮死的人(名字)
@@ -208,17 +210,22 @@ function nightStart() {
   room.nightNo++;
   room.wolfVotes = {};
   room.seerResult = null;
+  room.seerUsed = false;
   room.saveTarget = null;
   room.poisonTarget = null;
   room.killedTonight = null;
+  room.witchUsedTonight = false;
   room.hunterShots = {};
   clearTimer();
   setPhase("kill");
+  // 没有存活狼人(理论上不会发生)直接进入下一阶段
+  if (!wolves().length) return afterKill();
   room.timer = setTimeout(afterKill, SECONDS.kill * 1000);
 }
 
-/* —— 狼人阶段结束:统计刀人 —— */
+/* —— 狼人阶段结束:统计刀人(票多者被刀) —— */
 function afterKill() {
+  clearTimer();
   const counts = {};
   Object.values(room.wolfVotes).forEach((t) => { counts[t] = (counts[t] || 0) + 1; });
   let max = 0, target = null;
@@ -226,14 +233,15 @@ function afterKill() {
     if (c > max) { max = c; target = t; }
   });
   room.killedTonight = target;
-  clearTimer();
   setPhase("seer");
+  if (!room.players.some((p) => p.alive && p.role === "seer")) return afterSeer(); // 无预言家直接过
   room.timer = setTimeout(afterSeer, SECONDS.seer * 1000);
 }
 
 function afterSeer() {
   clearTimer();
   setPhase("witch");
+  if (!room.players.some((p) => p.alive && p.role === "witch")) return afterWitch(); // 无女巫直接过
   room.timer = setTimeout(afterWitch, SECONDS.witch * 1000);
 }
 
@@ -403,34 +411,54 @@ function handleMessage(conn, raw) {
       if (!byId(target)) return;
 
       if (act === "kill") {
+        // 每狼一票,投了不能改
         if (room.phase !== "kill" || p.role !== "wolf") return;
+        if (room.wolfVotes[p.id]) { sendTo(p.id, { t: "system", text: "你已经投过票了" }); return; }
         room.wolfVotes[p.id] = target;
         sendTo(p.id, { t: "action-ok", act: "kill", target });
+        // 所有狼人都投完 → 立即结算,不等倒计时
+        if (wolves().every((w) => room.wolfVotes[w.id])) {
+          clearTimer();
+          afterKill();
+        }
         return;
       }
 
       if (act === "seer") {
-        if (room.phase !== "seer" || p.role !== "seer") return;
+        // 预言家每晚只能查验一次
+        if (room.phase !== "seer" || p.role !== "seer" || room.seerUsed) return;
+        room.seerUsed = true;
         const t = byId(target);
         sendTo(p.id, { t: "seer-result", name: t.name, role: t.role === "wolf" ? "狼人" : "好人" });
+        // 查验完成 → 立即进入女巫阶段
+        clearTimer();
+        afterSeer();
         return;
       }
 
       if (act === "save") {
-        if (room.phase !== "witch" || p.role !== "witch" || !room.witchHasSave) return;
+        // 女巫每晚只能用一种药一次
+        if (room.phase !== "witch" || p.role !== "witch" || !room.witchHasSave || room.witchUsedTonight) return;
         if (target === p.id) { sendTo(p.id, { t: "system", text: "不能自救" }); return; }
         room.witchHasSave = false;
+        room.witchUsedTonight = true;
         room.saveTarget = target;
         sendTo(p.id, { t: "action-ok", act: "save", target });
+        // 用药完成 → 立即天亮结算
+        clearTimer();
+        afterWitch();
         return;
       }
 
       if (act === "poison") {
-        if (room.phase !== "witch" || p.role !== "witch" || !room.witchHasPoison) return;
+        if (room.phase !== "witch" || p.role !== "witch" || !room.witchHasPoison || room.witchUsedTonight) return;
         if (target === p.id) { sendTo(p.id, { t: "system", text: "不能毒自己" }); return; }
         room.witchHasPoison = false;
+        room.witchUsedTonight = true;
         room.poisonTarget = target;
         sendTo(p.id, { t: "action-ok", act: "poison", target });
+        clearTimer();
+        afterWitch();
         return;
       }
 
@@ -440,6 +468,9 @@ function handleMessage(conn, raw) {
         p.shot = true;
         room.hunterShots[p.id] = target;
         sendTo(p.id, { t: "action-ok", act: "shoot", target });
+        // 开枪完成 → 立即结算
+        clearTimer();
+        afterShoot();
         return;
       }
 
@@ -447,6 +478,11 @@ function handleMessage(conn, raw) {
         if (room.phase !== "vote" || !p.alive) return;
         room.votes[p.id] = target;
         sendTo(p.id, { t: "action-ok", act: "vote", target });
+        // 所有存活玩家都投完 → 立即计票,不等倒计时
+        if (aliveList().every((x) => room.votes[x.id])) {
+          clearTimer();
+          afterVote();
+        }
         return;
       }
       return;
