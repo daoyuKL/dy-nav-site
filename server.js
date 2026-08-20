@@ -534,10 +534,18 @@ const server = http.createServer((req, res) => {
       "Content-Type": TYPES[ext] || "application/octet-stream",
       "Content-Length": st.size,
     };
-    // 缓存策略:HTML 不缓存(保持最新);css/js/图片/视频/音频缓存 7 天
-    // (关键:视频 4MB+,不缓存会导致每次切页重新下载,加载极慢)
-    if (ext === ".html") {
+    // 缓存策略:
+    // - html/js/css 用协商缓存(no-cache + ETag):部署更新后用户刷新即拿到新文件;
+    //   文件未变化时服务器返回 304,浏览器用本地缓存,不浪费流量。
+    // - 图片/视频/音频缓存 7 天(大文件,不缓存会导致每次切页重新下载,加载极慢)
+    if (ext === ".html" || ext === ".js" || ext === ".css") {
       headers["Cache-Control"] = "no-cache";
+      headers["ETag"] = '"' + st.size + "-" + Math.floor(st.mtimeMs) + '"';
+      if (req.headers["if-none-match"] === headers["ETag"]) {
+        res.writeHead(304, headers);
+        res.end();
+        return;
+      }
     } else {
       headers["Cache-Control"] = "public, max-age=604800";
     }
