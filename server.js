@@ -3,8 +3,11 @@
    双击「启动网站.bat」即可运行,监听 8080 端口
    ==========================================================================
    留言板 API:
-     GET  /api/messages        -> 返回留言列表(自动清理超过 7 天的留言)
+     GET  /api/messages        -> 返回留言列表(自动清理超过 1 年的留言)
      POST /api/messages        -> 提交留言 { name, text, token? }
+   聊天室(消息保留 30 天,数据存磁盘 data/chat.json):
+     GET  /api/chat            -> 增量拉取(支持 ?after=时间戳)
+     POST /api/chat            -> 发送消息 { text, token? }
    趣事 API(用户动态,保留 30 天):
      GET  /api/fun             -> 返回趣事动态列表(自动清理超过 30 天的动态)
      POST /api/fun             -> 发布动态 { name, text, token? }
@@ -15,8 +18,8 @@
      POST /api/logout    { token }                   -> 退出登录
      GET  /api/me        (Authorization: Bearer xxx) -> 校验登录态
    说明:密码使用 scrypt 加盐哈希存储,不保存明文;
-         登录态(token)有效期 7 天,服务器重启后需重新登录;
-         留言仅保留最近 7 天,超过自动清空(即"每 7 天重置")。
+         登录态(token)有效期 30 天(持久化到磁盘,重启不丢);
+         留言仅保留最近 1 年,超过自动清空。
    ========================================================================== */
 const http = require("http");
 const https = require("https");
@@ -39,13 +42,13 @@ const CHAT_FILE = path.join(DATA_DIR, "chat.json");
 const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
 const FUN_FILE = path.join(DATA_DIR, "fun.json");
 
-const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 留言保留 7 天
-const MAX_MESSAGES = 500; // 最多保留条数(防刷屏)
+const MAX_AGE = 365 * 24 * 60 * 60 * 1000; // 留言保留 1 年
+const MAX_MESSAGES = 2000; // 最多保留条数(防刷屏)
 const MAX_NAME = 20; // 昵称最长字符数
 const MAX_TEXT = 300; // 留言最长字符数
 const SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 登录态有效 30 天(持久化到文件,重启不丢)
-const CHAT_TTL = 8 * 60 * 60 * 1000; // 聊天消息保留 8 小时
-const MAX_CHAT = 1000; // 聊天最多保留条数(防刷屏)
+const CHAT_TTL = 30 * 24 * 60 * 60 * 1000; // 聊天消息保留 30 天
+const MAX_CHAT = 2000; // 聊天最多保留条数(防刷屏)
 const MAX_CHAT_TEXT = 200; // 单条聊天消息最长字符数
 
 /* 趣事广场:用户动态保留 30 天 */
@@ -396,7 +399,7 @@ function saveMessages(list) {
 }
 
 /* ==========================================================================
-   聊天室(消息仅保留 8 小时,自动清空)
+   聊天室(消息保留 30 天,数据存磁盘 chat.json,自动清空)
    ========================================================================== */
 
 function loadChat() {
@@ -844,8 +847,8 @@ server.listen(PORT, () => {
   console.log("  DY导航站 已启动!");
   console.log("  本机访问: http://localhost:" + PORT);
   console.log("  局域网访问: http://你的IP:" + PORT);
-  console.log("  留言板: 留言保留 7 天,自动清空重置");
-  console.log("  聊天室: 消息保留 8 小时,自动清空重置");
+  console.log("  留言板: 留言保留 1 年,自动清空");
+  console.log("  聊天室: 消息保留 30 天,自动清空");
   console.log("  你画我猜: /ws 单房间,满 3 人开始");
   console.log("  账号: QQ 号注册/登录(简化方案,密码加盐存储)");
   console.log("  关闭本窗口即停止服务");

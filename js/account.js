@@ -62,7 +62,16 @@
         navUser.insertBefore(av, navUser.firstChild);
       }
       av.src = window.Account.avatarUrl(user.qq);
-      navUserName.textContent = (user.nickname || "QQ用户") + " (" + maskQQ(user.qq) + ")";
+      /* 昵称与 QQ 分开放,手机端可只显示昵称,避免挤占导航栏 */
+      navUserName.textContent = "";
+      const nick = document.createElement("span");
+      nick.className = "acct-nav-nick";
+      nick.textContent = user.nickname || "QQ用户";
+      const qqSpan = document.createElement("span");
+      qqSpan.className = "acct-nav-qq";
+      qqSpan.textContent = "(" + maskQQ(user.qq) + ")";
+      navUserName.appendChild(nick);
+      navUserName.appendChild(qqSpan);
     } else if (navUser && navLoginBtn) {
       navUser.style.display = "none";
       navLoginBtn.style.display = "";

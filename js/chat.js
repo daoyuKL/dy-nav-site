@@ -1,8 +1,9 @@
 /* ==========================================================================
    《DY导航站》聊天室脚本
    ==========================================================================
-   功能:公共聊天室,消息仅保留 8 小时自动清空(服务端 chat.json);
-         每 2 秒增量轮询新消息;登录用户发言自动署名,匿名可聊。
+   功能:公共聊天室,消息保留 30 天自动清空(服务端 chat.json,存磁盘);
+         每 2 秒增量轮询新消息;登录用户发言自动署名,匿名可聊;
+         APK 内可选本地聊天记录(手机端离线历史,清除缓存可删除)。
    ========================================================================== */
 
 (function () {
@@ -17,6 +18,7 @@
 
   const POLL_MS = 2000; // 轮询间隔
   let lastTime = 0; // 已渲染消息的最大时间(用于增量拉取 + 去重)
+  let allMsgs = []; // 本地累计消息(APK 手机端用于离线历史,上限 300 条)
 
   /* —— HTML 转义(防 XSS) —— */
   function esc(s) {
@@ -94,6 +96,9 @@
     if (stick) scrollToBottom();
     lastTime = Math.max.apply(null, fresh.map((m) => m.time || 0));
     if (loadingEl) loadingEl.style.display = "none";
+    /* 手机端:同步保存本地聊天记录(由 APK 注入的 window.ChatLocal 提供) */
+    allMsgs = allMsgs.concat(fresh).slice(-300);
+    if (window.ChatLocal) window.ChatLocal.save(allMsgs);
   }
 
   /* —— 轮询新消息 —— */
@@ -103,7 +108,19 @@
       .then((data) => {
         if (data && data.ok) appendMessages(data.messages);
       })
-      .catch(() => { /* 网络异常静默重试 */ })
+      .catch(() => {
+        /* 服务器连不上:APK 手机端展示本地历史(仅首次) */
+        if (lastTime === 0 && window.ChatLocal) {
+          const local = window.ChatLocal.load();
+          if (local && local.length) {
+            appendMessages(local);
+            if (loadingEl) {
+              loadingEl.textContent = "📱 离线模式 · 显示手机本地聊天记录(服务器未连接)";
+              loadingEl.style.display = "block";
+            }
+          }
+        }
+      })
       .finally(() => setTimeout(poll, POLL_MS));
   }
 
