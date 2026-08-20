@@ -109,39 +109,41 @@ function sendJSON(res, status, obj) {
 
 /* ==========================================================================
    网易云音乐搜索代理
-   浏览器直接请求 music.163.com 会被跨域(CORS)拦截,由本服务器转发。
+   浏览器直接请求 music.163.com 会被跨域(CORS)拦截,由本服务器转发;
+   且网易云对无 Cookie 的请求(尤其海外服务器 IP)会拒绝,
+   因此带上浏览器样式 Cookie 并多接口并行容错。
    前端调用:GET /api/music/search?q=关键词
    ========================================================================== */
-function handleMusicSearch(res, rawUrl) {
-  const m = (rawUrl || "").match(/[?&]q=([^&]*)/);
-  const kw = m ? decodeURIComponent(m[1]).trim().slice(0, 50) : "";
-  if (!kw) return sendJSON(res, 400, { ok: false, error: "请输入搜索关键词" });
 
-  const api =
-    "https://music.163.com/api/search/get/web?s=" +
-    encodeURIComponent(kw) +
-    "&type=1&limit=20";
-  let done = false;
-  const sendOnce = (code, obj) => {
-    if (done) return;
-    done = true;
-    sendJSON(res, code, obj);
-  };
+/* 随机 NMTID(网易云匿名访客标识,任意 32 位十六进制即可) */
+function makeNMTID() {
+  let s = "";
+  for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);
+  return s;
+}
 
+const NETBASE_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+  Referer: "https://music.163.com/",
+  "Accept-Language": "zh-CN,zh;q=0.9",
+};
+
+/* 单个接口请求:url 成功且解析出歌曲则回调 songs,否则回调 null */
+function fetchNeteaseSongs(url, cb) {
+  let settled = false;
   const req = https.get(
-    api,
+    url,
     {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
-        Referer: "https://music.163.com/",
-      },
+      headers: { ...NETBASE_HEADERS, Cookie: "os=pc; appver=2.9.7; NMTID=" + makeNMTID() },
       timeout: 8000,
     },
     (r) => {
       const chunks = [];
       r.on("data", (c) => chunks.push(c));
       r.on("end", () => {
+        if (settled) return;
+        settled = true;
         try {
           const d = JSON.parse(Buffer.concat(chunks).toString("utf8"));
           const songs = (d && d.result && d.result.songs) || [];
@@ -151,19 +153,46 @@ function handleMusicSearch(res, rawUrl) {
             artist: (s.artists || []).map((a) => a.name).join(" / "),
             album: (s.album && s.album.name) || "",
           }));
-          sendOnce(200, { ok: true, songs: list });
+          cb(list.length ? list : null);
         } catch (e) {
-          sendOnce(502, { ok: false, error: "解析网易云返回数据失败" });
+          cb(null);
         }
       });
     }
   );
-  req.on("timeout", () => {
-    req.destroy();
-    sendOnce(504, { ok: false, error: "请求网易云超时,请稍后再试" });
-  });
-  req.on("error", (e) => {
-    sendOnce(502, { ok: false, error: "搜索失败:" + e.message });
+  req.on("timeout", () => { req.destroy(); if (!settled) { settled = true; cb(null); } });
+  req.on("error", () => { if (!settled) { settled = true; cb(null); } });
+}
+
+function handleMusicSearch(res, rawUrl) {
+  const m = (rawUrl || "").match(/[?&]q=([^&]*)/);
+  const kw = m ? decodeURIComponent(m[1]).trim().slice(0, 50) : "";
+  if (!kw) return sendJSON(res, 400, { ok: false, error: "请输入搜索关键词" });
+
+  const q = encodeURIComponent(kw);
+  // 多接口并行,谁先返回结果用谁(提高海外服务器可用性)
+  const sources = [
+    "https://music.163.com/api/search/get/web?s=" + q + "&type=1&limit=20",
+    "https://music.163.com/api/cloudsearch/pc?s=" + q + "&type=1&limit=20",
+    "https://music.163.com/api/search/get?s=" + q + "&type=1&limit=20",
+  ];
+
+  let done = false;
+  let pending = sources.length;
+  const sendOnce = (code, obj) => {
+    if (done) return;
+    done = true;
+    sendJSON(res, code, obj);
+  };
+
+  sources.forEach((url) => {
+    fetchNeteaseSongs(url, (list) => {
+      if (done) return;
+      if (list) return sendOnce(200, { ok: true, songs: list });
+      if (--pending <= 0) {
+        sendOnce(502, { ok: false, error: "网易云搜索暂时不可用(所有接口均失败),请稍后再试" });
+      }
+    });
   });
 }
 

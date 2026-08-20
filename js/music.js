@@ -143,7 +143,11 @@
     fetch("/api/music/search?q=" + encodeURIComponent(kw))
       .then((r) => r.json())
       .then((d) => {
-        if (!d.ok || !d.songs || !d.songs.length) {
+        if (!d.ok) {
+          searchStatus.textContent = d.error || "搜索失败,请稍后再试";
+          return;
+        }
+        if (!d.songs || !d.songs.length) {
           searchStatus.textContent = "没有找到相关歌曲,换个关键词试试";
           return;
         }
