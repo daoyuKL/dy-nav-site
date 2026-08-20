@@ -237,9 +237,9 @@
 
     if (m === "auto") {
       lastSlot = hourSlot();
-      setupVideo();
+      setTimeout(setupVideo, 1800); // 延迟加载:页面内容优先,视频随后慢慢加载
     } else if (m === "day" || m === "night") {
-      setupVideo();
+      setTimeout(setupVideo, 1800);
     } else if (m === "stars") {
       setupCanvas();
       drawStars(performance.now());
