@@ -197,6 +197,172 @@ function handleMusicSearch(res, rawUrl) {
 }
 
 /* ==========================================================================
+   网易云账号与歌单
+   登录方式:粘贴网易云网页版 cookie 中的 MUSIC_U(无需密码与加密登录),
+   之后用该 cookie 调用公开接口读取歌单。会话保存在 data/netease.json。
+   ========================================================================== */
+const NETBASE_COOKIE_BASE = "os=pc; appver=2.9.7; ";
+const NETBASE_SESSION_FILE = path.join(DATA_DIR, "netease.json");
+let neteaseSession = null; // { cookie, uid, nickname, time }
+try {
+  neteaseSession = readJSON(NETBASE_SESSION_FILE, null);
+} catch (e) { /* 忽略 */ }
+
+/* 带当前会话 cookie 请求网易云 GET 接口(失败回调 null) */
+function neteaseGet(path, cb) {
+  const cookie = neteaseSession
+    ? NETBASE_COOKIE_BASE + neteaseSession.cookie
+    : NETBASE_COOKIE_BASE;
+  let settled = false;
+  const req = https.get(
+    "https://music.163.com" + path,
+    { headers: { ...NETBASE_HEADERS, Cookie: cookie }, timeout: 8000 },
+    (r) => {
+      const chunks = [];
+      r.on("data", (c) => chunks.push(c));
+      r.on("end", () => {
+        if (settled) return;
+        settled = true;
+        try {
+          cb(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+        } catch (e) {
+          cb(null);
+        }
+      });
+    }
+  );
+  req.on("timeout", () => { req.destroy(); if (!settled) { settled = true; cb(null); } });
+  req.on("error", () => { if (!settled) { settled = true; cb(null); } });
+}
+
+/* 歌单列表 → 前端字段 */
+function mapPlaylists(list) {
+  return (list || []).map((p) => ({
+    id: p.id,
+    name: p.name || "未命名歌单",
+    cover: p.coverImgUrl || "",
+    playCount: p.playCount || 0,
+    trackCount: p.trackCount || 0,
+    creator: (p.creator && p.creator.nickname) || "",
+  }));
+}
+
+/* —— 搜索歌单 —— */
+function handleNeteaseSearchPlaylist(res, rawUrl) {
+  const m = (rawUrl || "").match(/[?&]q=([^&]*)/);
+  const kw = m ? decodeURIComponent(m[1]).trim().slice(0, 50) : "";
+  if (!kw) return sendJSON(res, 400, { ok: false, error: "请输入歌单关键词" });
+  neteaseGet(
+    "/api/search/get/web?s=" + encodeURIComponent(kw) + "&type=1000&limit=30",
+    (d) => {
+      if (!d) return sendJSON(res, 502, { ok: false, error: "网易云暂时不可用,请稍后再试" });
+      const pls = (d.result && d.result.playlists) || [];
+      sendJSON(res, 200, { ok: true, playlists: mapPlaylists(pls.slice(0, 30)) });
+    }
+  );
+}
+
+/* —— 歌单详情(歌曲列表) —— */
+function handleNeteasePlaylistDetail(res, rawUrl) {
+  const m = (rawUrl || "").match(/[?&]id=(\d+)/);
+  const id = m ? m[1] : "";
+  if (!id) return sendJSON(res, 400, { ok: false, error: "缺少歌单 id" });
+  neteaseGet("/api/playlist/detail?id=" + id, (d) => {
+    if (!d || !d.result) return sendJSON(res, 502, { ok: false, error: "获取歌单失败" });
+    const r = d.result;
+    const tracks = (r.tracks || [])
+      .filter(Boolean)
+      .map((t) => ({
+        id: t.id,
+        name: t.name || "未知歌曲",
+        artist: (t.artists || []).map((a) => a.name).join(" / "),
+      }));
+    sendJSON(res, 200, {
+      ok: true,
+      playlist: { id: r.id, name: r.name || "", trackCount: r.trackCount || tracks.length, tracks },
+    });
+  });
+}
+
+/* —— 我的歌单(需登录) —— */
+function handleNeteaseMine(res) {
+  if (!neteaseSession) return sendJSON(res, 200, { ok: false, error: "未登录" });
+  neteaseGet(
+    "/api/user/playlist?uid=" + neteaseSession.uid + "&limit=100&offset=0",
+    (d) => {
+      if (!d) return sendJSON(res, 502, { ok: false, error: "网易云暂时不可用,请稍后再试" });
+      sendJSON(res, 200, { ok: true, playlists: mapPlaylists(d.playlist || []) });
+    }
+  );
+}
+
+/* —— 当前登录态 —— */
+function handleNeteaseMe(res) {
+  if (!neteaseSession) {
+    return sendJSON(res, 200, { ok: true, loggedIn: false });
+  }
+  sendJSON(res, 200, {
+    ok: true,
+    loggedIn: true,
+    nickname: neteaseSession.nickname || "",
+    uid: neteaseSession.uid || 0,
+  });
+}
+
+/* —— 登录:粘贴 MUSIC_U —— */
+function handleNeteaseLogin(req, res) {
+  readBody(req, 16 * 1024, (err, body) => {
+    if (err) return sendJSON(res, 413, { ok: false, error: "Payload Too Large" });
+    let data;
+    try { data = JSON.parse(body || "{}"); } catch (e) { return sendJSON(res, 400, { ok: false, error: "Bad JSON" }); }
+    const musicu = String(data.musicu || "").trim();
+    if (!musicu) return sendJSON(res, 400, { ok: false, error: "请输入 MUSIC_U 值" });
+
+    // 用该 cookie 请求账号信息验证有效性
+    let settled = false;
+    const req2 = https.get(
+      "https://music.163.com/api/nuser/account/get",
+      {
+        headers: { ...NETBASE_HEADERS, Cookie: NETBASE_COOKIE_BASE + "MUSIC_U=" + musicu },
+        timeout: 8000,
+      },
+      (r) => {
+        const chunks = [];
+        r.on("data", (c) => chunks.push(c));
+        r.on("end", () => {
+          if (settled) return;
+          settled = true;
+          let d = null;
+          try { d = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch (e) { /* 忽略 */ }
+          if (d && d.profile && d.profile.userId) {
+            neteaseSession = {
+              cookie: "MUSIC_U=" + musicu,
+              uid: d.profile.userId,
+              nickname: d.profile.nickname || "网易云用户",
+              time: Date.now(),
+            };
+            writeJSON(NETBASE_SESSION_FILE, neteaseSession);
+            return sendJSON(res, 200, { ok: true, nickname: neteaseSession.nickname, uid: neteaseSession.uid });
+          }
+          sendJSON(res, 200, { ok: false, error: "MUSIC_U 无效或已过期,请重新从网易云获取" });
+        });
+      }
+    );
+    req2.on("timeout", () => { req2.destroy(); if (!settled) { settled = true; sendJSON(res, 502, { ok: false, error: "验证超时,请重试" }); } });
+    req2.on("error", () => { if (!settled) { settled = true; sendJSON(res, 502, { ok: false, error: "连接网易云失败" }); } });
+  });
+}
+
+/* —— 退出登录 —— */
+function handleNeteaseLogout(req, res) {
+  readBody(req, 16 * 1024, () => {
+    neteaseSession = null;
+    try { fs.unlinkSync(NETBASE_SESSION_FILE); } catch (e) { /* 忽略 */ }
+    sendJSON(res, 200, { ok: true });
+  });
+}
+
+/* ==========================================================================
    留言板
    ========================================================================== */
 
@@ -538,6 +704,13 @@ const server = http.createServer((req, res) => {
     handleMusicSearch(res, req.url);
     return;
   }
+  /* 网易云歌单与账号 */
+  if (url === "/api/netease/search") { handleNeteaseSearchPlaylist(res, req.url); return; }
+  if (url === "/api/netease/playlist") { handleNeteasePlaylistDetail(res, req.url); return; }
+  if (url === "/api/netease/mine") { handleNeteaseMine(res); return; }
+  if (url === "/api/netease/me") { handleNeteaseMe(res); return; }
+  if (url === "/api/netease/login") { handleNeteaseLogin(req, res); return; }
+  if (url === "/api/netease/logout") { handleNeteaseLogout(req, res); return; }
 
   /* API 优先处理 */
   if (url.startsWith("/api/")) {
