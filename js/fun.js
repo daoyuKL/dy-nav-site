@@ -6,52 +6,7 @@
   var tip = document.getElementById("fun-empty");
   var newsEl = document.getElementById("fun-news");
   if (!listEl) return;
-  var NEWS = [{
-    name: "\u5FAE\u535A\u70ED\u641C",
-    url: "https://s.weibo.com/top/summary",
-    desc: "\u5FAE\u535A\u5B9E\u65F6\u70ED\u641C\u699C",
-    icon: "\uD83D\uDD25"
-  }, {
-    name: "\u767E\u5EA6\u70ED\u641C",
-    url: "https://top.baidu.com/board?tab=realtime",
-    desc: "\u767E\u5EA6\u5B9E\u65F6\u70ED\u70B9",
-    icon: "\uD83D\uDC3B"
-  }, {
-    name: "\u77E5\u4E4E\u70ED\u699C",
-    url: "https://www.zhihu.com/hot",
-    desc: "\u77E5\u4E4E\u70ED\u8BAE\u8BDD\u9898",
-    icon: "\uD83E\uDD14"
-  }, {
-    name: "\u6296\u97F3\u70ED\u70B9",
-    url: "https://www.douyin.com/hot",
-    desc: "\u6296\u97F3\u70ED\u95E8\u89C6\u9891",
-    icon: "\uD83C\uDFAC"
-  }, {
-    name: "\u4ECA\u65E5\u5934\u6761",
-    url: "https://www.toutiao.com",
-    desc: "\u5934\u6761\u8D44\u8BAF",
-    icon: "\uD83D\uDCF0"
-  }, {
-    name: "\u817E\u8BAF\u65B0\u95FB",
-    url: "https://news.qq.com",
-    desc: "\u817E\u8BAF\u65B0\u95FB\u4E2D\u5FC3",
-    icon: "\uD83D\uDC27"
-  }, {
-    name: "\u7F51\u6613\u65B0\u95FB",
-    url: "https://news.163.com",
-    desc: "\u7F51\u6613\u65B0\u95FB",
-    icon: "\uD83D\uDCF0"
-  }, {
-    name: "\u4EBA\u6C11\u7F51",
-    url: "http://www.people.com.cn",
-    desc: "\u6743\u5A01\u65F6\u653F\u65B0\u95FB",
-    icon: "\uD83C\uDDE8\uD83C\uDDF3"
-  }];
-  if (newsEl) {
-    newsEl.innerHTML = NEWS.map(function (n) {
-      return '\n      <a class="fun-news-card" href="'.concat(n.url, '" target="_blank" rel="noopener">\n        <span class="fun-news-icon">').concat(n.icon, '</span>\n        <span class="fun-news-body">\n          <span class="fun-news-name">').concat(n.name, '</span>\n          <span class="fun-news-desc">').concat(n.desc, "</span>\n        </span>\n        <span class=\"fun-news-arrow\">\u2192</span>\n      </a>");
-    }).join("");
-  }
+  /* 新闻速递已改为静态 HTML 渲染(fun.html),这里不再需要 JS 生成 */
   function esc(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
@@ -94,6 +49,13 @@
     }).join("");
   }
   function load() {
+    if (typeof fetch !== "function") {
+      if (tip) {
+        tip.innerHTML = "\u26A0\uFE0F \u6D4F\u89C8\u5668\u592A\u65E7,\u65E0\u6CD5\u8FDE\u63A5\u670D\u52A1\u5668";
+        tip.style.display = "block";
+      }
+      return;
+    }
     fetch("/api/fun").then(function (r) {
       return r.json();
     }).then(function (data) {
