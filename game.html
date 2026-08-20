@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>你画我猜 · DY导航站</title>
+  <meta name="description" content="DY导航站你画我猜,满 3 人即可开局" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- 动态壁纸背景层 -->
+  <div id="bg-layer"></div>
+
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a class="logo" href="index.html">
+        <img class="logo-img" src="assets/网站左边标题图片.jpg" alt="DY导航站" />
+        <span class="logo-text">DY导航站</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html">首页</a>
+        <a href="tools.html">工具导航</a>
+        <a href="games.html">游戏导航</a>
+        <a href="music.html">音乐</a>
+        <a href="message.html">留言板</a>
+        <a href="chat.html">聊天</a>
+        <a href="online-games.html">在线游戏</a>
+        <a href="contact.html">联系社交</a>
+      </div>
+      <div class="nav-actions">
+        <div class="bg-toggle-wrap">
+          <button class="bg-toggle" id="bg-toggle" title="动态壁纸">🎨</button>
+          <div class="bg-menu" id="bg-menu">
+            <div class="bg-menu-title">视频壁纸</div>
+            <button data-bg="auto">🎬 自动(按时间)</button>
+            <button data-bg="day">☀️ 日间</button>
+            <button data-bg="night">🌙 夜间</button>
+            <div class="bg-menu-divider"></div>
+            <div class="bg-menu-title">特效</div>
+            <button data-bg="stars">🌌 星空</button>
+            <button data-bg="petals">🌸 花瓣</button>
+            <button data-bg="aurora">🌊 极光</button>
+            <button data-bg="off">✖️ 关闭</button>
+          </div>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" title="切换深浅色">🌙</button>
+        <button class="acct-nav" id="nav-login-btn" title="登录">👤 登录</button>
+        <div class="acct-nav-user" id="nav-user" style="display:none;">
+          <span class="acct-nav-name" id="nav-user-name"></span>
+          <button class="acct-nav-logout" id="nav-logout-btn" title="退出登录">退出</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero container" style="padding-bottom: 8px;">
+    <h1>🎨 你画我猜</h1>
+    <p>满 3 人即可开局,轮流当画师,其余玩家猜词。猜对 +10 分,画师 +5 分。</p>
+  </header>
+
+  <main class="container">
+    <!-- 加入房间 -->
+    <div class="game-lobby" id="game-lobby">
+      <div class="game-lobby-box">
+        <div class="game-lobby-icon">🖌️</div>
+        <h3>加入房间</h3>
+        <p class="game-lobby-tip">房间人数上限 8 人,满 3 人即可开始游戏</p>
+        <div class="game-lobby-row">
+          <input class="game-lobby-input" id="game-name" type="text" maxlength="12" placeholder="你的昵称(默认:玩家+编号)" autocomplete="off" />
+          <button class="game-lobby-btn" id="game-join-btn" type="button">加入房间</button>
+        </div>
+        <div class="game-lobby-status" id="game-lobby-status"></div>
+      </div>
+    </div>
+
+    <!-- 游戏房间 -->
+    <div class="game-room" id="game-room" style="display:none;">
+      <div class="game-top">
+        <div class="game-info" id="game-info">等待玩家加入…</div>
+        <button class="game-start-btn" id="game-start-btn" type="button">开始游戏</button>
+      </div>
+
+      <div class="game-body">
+        <!-- 画布区 -->
+        <div class="game-main">
+          <div class="game-toolbar" id="game-toolbar" style="display:none;">
+            <button class="tool-color" data-c="#000000" style="background:#000000" title="黑色"></button>
+            <button class="tool-color" data-c="#e74c3c" style="background:#e74c3c" title="红色"></button>
+            <button class="tool-color" data-c="#f39c12" style="background:#f39c12" title="橙色"></button>
+            <button class="tool-color" data-c="#f1c40f" style="background:#f1c40f" title="黄色"></button>
+            <button class="tool-color" data-c="#2ecc71" style="background:#2ecc71" title="绿色"></button>
+            <button class="tool-color" data-c="#3498db" style="background:#3498db" title="蓝色"></button>
+            <button class="tool-color" data-c="#9b59b6" style="background:#9b59b6" title="紫色"></button>
+            <button class="tool-color" data-c="#ffffff" style="background:#ffffff" title="白色"></button>
+            <span class="tool-divider"></span>
+            <button class="tool-btn tool-size" data-w="3" title="细">细</button>
+            <button class="tool-btn tool-size active" data-w="8" title="中">中</button>
+            <button class="tool-btn tool-size" data-w="20" title="粗">粗</button>
+            <span class="tool-divider"></span>
+            <button class="tool-btn" id="tool-eraser" title="橡皮">🧽 橡皮</button>
+            <button class="tool-btn" id="tool-clear" title="清空画布">🗑️ 清空</button>
+          </div>
+          <div class="game-canvas-wrap">
+            <canvas id="game-canvas" width="800" height="500"></canvas>
+            <div class="game-canvas-tip" id="game-canvas-tip"></div>
+          </div>
+        </div>
+
+        <!-- 侧边面板 -->
+        <div class="game-side">
+          <div class="game-status" id="game-status">等待开始…</div>
+          <div class="game-players">
+            <div class="game-side-title">👥 玩家(<span id="game-count">0</span>/8)</div>
+            <div class="game-player-list" id="game-player-list"></div>
+          </div>
+          <div class="game-guess" id="game-guess-wrap">
+            <div class="game-side-title">💭 猜词</div>
+            <div class="game-guess-row">
+              <input class="game-guess-input" id="game-guess" type="text" maxlength="30" placeholder="输入你的答案…" autocomplete="off" disabled />
+              <button class="game-guess-btn" id="game-guess-btn" type="button" disabled>猜</button>
+            </div>
+          </div>
+          <div class="game-chat">
+            <div class="game-side-title">💬 消息</div>
+            <div class="game-log" id="game-log"></div>
+            <div class="game-chat-row">
+              <input class="game-chat-input" id="game-chat" type="text" maxlength="100" placeholder="和大家聊天…" autocomplete="off" />
+              <button class="game-chat-btn" id="game-chat-btn" type="button">发</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 游戏结束弹窗 -->
+  <div class="game-over-overlay" id="game-over-overlay" style="display:none;">
+    <div class="game-over-box">
+      <h3>🏆 游戏结束</h3>
+      <div class="game-ranking" id="game-ranking"></div>
+      <button class="game-over-btn" id="game-restart-btn" type="button">再来一局</button>
+      <button class="game-over-close" id="game-over-close" type="button">关闭</button>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <p>🎨 DY导航站 · <a href="contact.html">联系我</a> 提出建议</p>
+      <p style="margin-top:4px">© <span data-year></span> All rights reserved.</p>
+    </div>
+  </footer>
+
+  <button class="back-top" id="back-top" title="回到顶部">↑</button>
+
+  <script src="js/main.js"></script>
+  <script src="js/background.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/easter.js"></script>
+  <script src="js/notice.js"></script>
+  <script src="js/account.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

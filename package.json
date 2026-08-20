@@ -1,0 +1,13 @@
+{
+  "name": "dy-nav-site",
+  "version": "1.0.0",
+  "description": "DY导航站 - 工具/游戏/音乐导航 + 留言板/聊天/QQ登录/你画我猜",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

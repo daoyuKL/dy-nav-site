@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>在线游戏 · DY导航站</title>
+  <meta name="description" content="你画我猜、狼人杀等在线多人游戏" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- 动态壁纸背景层 -->
+  <div id="bg-layer"></div>
+
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a class="logo" href="index.html">
+        <img class="logo-img" src="assets/网站左边标题图片.jpg" alt="DY导航站" />
+        <span class="logo-text">DY导航站</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html">首页</a>
+        <a href="tools.html">工具导航</a>
+        <a href="games.html">游戏导航</a>
+        <a href="music.html">音乐</a>
+        <a href="online-games.html">在线游戏</a>
+        <a href="message.html">留言板</a>
+        <a href="chat.html">聊天</a>
+        <a href="contact.html">联系社交</a>
+      </div>
+      <div class="nav-actions">
+        <div class="bg-toggle-wrap">
+          <button class="bg-toggle" id="bg-toggle" title="动态壁纸">🎨</button>
+          <div class="bg-menu" id="bg-menu">
+            <div class="bg-menu-title">视频壁纸</div>
+            <button data-bg="auto">🎬 自动(按时间)</button>
+            <button data-bg="day">☀️ 日间</button>
+            <button data-bg="night">🌙 夜间</button>
+            <div class="bg-menu-divider"></div>
+            <div class="bg-menu-title">特效</div>
+            <button data-bg="stars">🌌 星空</button>
+            <button data-bg="petals">🌸 花瓣</button>
+            <button data-bg="aurora">🌊 极光</button>
+            <button data-bg="off">✖️ 关闭</button>
+          </div>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" title="切换深浅色">🌙</button>
+        <button class="acct-nav" id="nav-login-btn" title="登录">👤 登录</button>
+        <div class="acct-nav-user" id="nav-user" style="display:none;">
+          <span class="acct-nav-name" id="nav-user-name"></span>
+          <button class="acct-nav-logout" id="nav-logout-btn" title="退出登录">退出</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero container" style="padding-bottom: 8px;">
+    <h1>🎮 在线游戏</h1>
+    <p>拉上小伙伴,在线一起玩 —— 选择一款游戏开始吧。</p>
+  </header>
+
+  <main class="container">
+    <div class="og-grid">
+      <!-- 你画我猜 -->
+      <a class="og-card" href="game.html">
+        <div class="og-card-top" style="background:linear-gradient(135deg,#4f6ef7,#7c5cff);">
+          <span class="og-icon">🎨</span>
+        </div>
+        <div class="og-card-body">
+          <h3>你画我猜</h3>
+          <p>满 3 人开局,轮流当画师,其余玩家猜词。猜对 +10 分,画师 +5 分。</p>
+          <div class="og-tags">
+            <span class="og-tag">3-8 人</span>
+            <span class="og-tag">实时画板</span>
+            <span class="og-tag">在线</span>
+          </div>
+          <span class="og-btn">进入游戏 →</span>
+        </div>
+      </a>
+
+      <!-- 狼人杀 -->
+      <a class="og-card" href="werewolf.html">
+        <div class="og-card-top" style="background:linear-gradient(135deg,#0ea5e9,#22d3ee);">
+          <span class="og-icon">🐺</span>
+        </div>
+        <div class="og-card-body">
+          <h3>狼人杀</h3>
+          <p>6-12 人开局。狼人夜晚刀人,好人白天投票,预言家/女巫/猎人各显神通。</p>
+          <div class="og-tags">
+            <span class="og-tag">6-12 人</span>
+            <span class="og-tag">角色扮演</span>
+            <span class="og-tag">在线</span>
+          </div>
+          <span class="og-btn">进入游戏 →</span>
+        </div>
+      </a>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>🎮 DY导航站 · <a href="contact.html">联系我</a> 提出建议</p>
+      <p style="margin-top:4px">© <span data-year></span> All rights reserved.</p>
+    </div>
+  </footer>
+
+  <button class="back-top" id="back-top" title="回到顶部">↑</button>
+
+  <script src="js/main.js"></script>
+  <script src="js/background.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/easter.js"></script>
+  <script src="js/notice.js"></script>
+  <script src="js/account.js"></script>
+</body>
+</html>

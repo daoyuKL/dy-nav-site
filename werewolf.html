@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>狼人杀 · DY导航站</title>
+  <meta name="description" content="DY导航站狼人杀,6-12 人开局" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- 动态壁纸背景层 -->
+  <div id="bg-layer"></div>
+
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a class="logo" href="index.html">
+        <img class="logo-img" src="assets/网站左边标题图片.jpg" alt="DY导航站" />
+        <span class="logo-text">DY导航站</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html">首页</a>
+        <a href="tools.html">工具导航</a>
+        <a href="games.html">游戏导航</a>
+        <a href="music.html">音乐</a>
+        <a href="online-games.html">在线游戏</a>
+        <a href="message.html">留言板</a>
+        <a href="chat.html">聊天</a>
+        <a href="contact.html">联系社交</a>
+      </div>
+      <div class="nav-actions">
+        <div class="bg-toggle-wrap">
+          <button class="bg-toggle" id="bg-toggle" title="动态壁纸">🎨</button>
+          <div class="bg-menu" id="bg-menu">
+            <div class="bg-menu-title">视频壁纸</div>
+            <button data-bg="auto">🎬 自动(按时间)</button>
+            <button data-bg="day">☀️ 日间</button>
+            <button data-bg="night">🌙 夜间</button>
+            <div class="bg-menu-divider"></div>
+            <div class="bg-menu-title">特效</div>
+            <button data-bg="stars">🌌 星空</button>
+            <button data-bg="petals">🌸 花瓣</button>
+            <button data-bg="aurora">🌊 极光</button>
+            <button data-bg="off">✖️ 关闭</button>
+          </div>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" title="切换深浅色">🌙</button>
+        <button class="acct-nav" id="nav-login-btn" title="登录">👤 登录</button>
+        <div class="acct-nav-user" id="nav-user" style="display:none;">
+          <span class="acct-nav-name" id="nav-user-name"></span>
+          <button class="acct-nav-logout" id="nav-logout-btn" title="退出登录">退出</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero container" style="padding-bottom: 8px;">
+    <h1>🐺 狼人杀</h1>
+    <p>6-12 人开局。狼人夜晚刀人,好人白天投票,预言家/女巫/猎人各显神通。</p>
+  </header>
+
+  <main class="container">
+    <!-- 加入房间 -->
+    <div class="game-lobby" id="wl-lobby">
+      <div class="game-lobby-box">
+        <div class="game-lobby-icon">🐺</div>
+        <h3>加入狼人杀房间</h3>
+        <p class="game-lobby-tip">需要 6-12 人,满 6 人即可开始</p>
+        <div class="game-lobby-row">
+          <input class="game-lobby-input" id="wl-name" type="text" maxlength="12" placeholder="你的昵称(默认:玩家+编号)" autocomplete="off" />
+          <button class="game-lobby-btn" id="wl-join-btn" type="button">加入房间</button>
+        </div>
+        <div class="game-lobby-status" id="wl-lobby-status"></div>
+      </div>
+    </div>
+
+    <!-- 游戏房间 -->
+    <div class="game-room" id="wl-room" style="display:none;">
+      <div class="game-top">
+        <div class="game-info" id="wl-info">等待玩家加入…</div>
+        <button class="game-start-btn" id="wl-start-btn" type="button">开始游戏</button>
+      </div>
+
+      <div class="game-body">
+        <div class="game-main">
+          <div class="wl-role-card" id="wl-role-card" style="display:none;">
+            我的身份:<b id="wl-role-text"></b>
+          </div>
+          <div class="wl-stage" id="wl-stage">等待开始…</div>
+          <div class="wl-action" id="wl-action"></div>
+        </div>
+
+        <div class="game-side">
+          <div class="game-players">
+            <div class="game-side-title">👥 玩家(<span id="wl-count">0</span>/12)</div>
+            <div class="game-player-list" id="wl-player-list"></div>
+          </div>
+          <div class="game-chat">
+            <div class="game-side-title">💬 讨论</div>
+            <div class="game-log" id="wl-log"></div>
+            <div class="game-chat-row">
+              <input class="game-chat-input" id="wl-chat" type="text" maxlength="100" placeholder="发言…" autocomplete="off" />
+              <button class="game-chat-btn" id="wl-chat-btn" type="button">发</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 游戏结束弹窗 -->
+  <div class="game-over-overlay" id="wl-over-overlay" style="display:none;">
+    <div class="game-over-box">
+      <h3 id="wl-over-title">🏁 游戏结束</h3>
+      <div class="game-ranking" id="wl-over-roles"></div>
+      <button class="game-over-btn" id="wl-restart-btn" type="button">再来一局</button>
+      <button class="game-over-close" id="wl-over-close" type="button">关闭</button>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <p>🐺 DY导航站 · <a href="contact.html">联系我</a> 提出建议</p>
+      <p style="margin-top:4px">© <span data-year></span> All rights reserved.</p>
+    </div>
+  </footer>
+
+  <button class="back-top" id="back-top" title="回到顶部">↑</button>
+
+  <script src="js/main.js"></script>
+  <script src="js/background.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/easter.js"></script>
+  <script src="js/notice.js"></script>
+  <script src="js/account.js"></script>
+  <script src="js/werewolf.js"></script>
+</body>
+</html>

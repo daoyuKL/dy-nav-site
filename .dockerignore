@@ -1,0 +1,12 @@
+# 运行数据(部署后自动生成)
+messages.json
+users.json
+chat.json
+
+# 依赖与版本控制
+node_modules/
+.git/
+.gitignore
+
+# 本地杂项
+*.log

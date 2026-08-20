@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>联系社交 · DY导航站</title>
+  <meta name="description" content="联系方式与社交媒体主页" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- 动态壁纸背景层 -->
+  <div id="bg-layer"></div>
+
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a class="logo" href="index.html">
+        <img class="logo-img" src="assets/网站左边标题图片.jpg" alt="DY导航站" />
+        <span class="logo-text">DY导航站</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html">首页</a>
+        <a href="tools.html">工具导航</a>
+        <a href="games.html">游戏导航</a>
+        <a href="music.html">音乐</a>
+        <a href="message.html">留言板</a>
+        <a href="chat.html">聊天</a>
+        <a href="online-games.html">在线游戏</a>
+        <a href="contact.html">联系社交</a>
+      </div>
+      <div class="nav-actions">
+        <div class="bg-toggle-wrap">
+          <button class="bg-toggle" id="bg-toggle" title="动态壁纸">🎨</button>
+          <div class="bg-menu" id="bg-menu">
+            <div class="bg-menu-title">视频壁纸</div>
+            <button data-bg="auto">🎬 自动(按时间)</button>
+            <button data-bg="day">☀️ 日间</button>
+            <button data-bg="night">🌙 夜间</button>
+            <div class="bg-menu-divider"></div>
+            <div class="bg-menu-title">特效</div>
+            <button data-bg="stars">🌌 星空</button>
+            <button data-bg="petals">🌸 花瓣</button>
+            <button data-bg="aurora">🌊 极光</button>
+            <button data-bg="off">✖️ 关闭</button>
+          </div>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" title="切换深浅色">🌙</button>
+        <button class="acct-nav" id="nav-login-btn" title="登录">👤 登录</button>
+        <div class="acct-nav-user" id="nav-user" style="display:none;">
+          <span class="acct-nav-name" id="nav-user-name"></span>
+          <button class="acct-nav-logout" id="nav-logout-btn" title="退出登录">退出</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <section class="profile-card">
+      <img class="avatar-img" src="assets/avatar.jpg" alt="岛屿头像" />
+      <h2>你好,我是 岛屿</h2>
+      <p class="bio">欢迎来到DY导航站!这里有我常用的工具、游戏和下载网址。
+      想找我,可以通过下面的方式联系。</p>
+
+      <div class="social-grid" id="contacts-container"></div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>💬 DY导航站 · 期待与你联系</p>
+      <p style="margin-top:4px">© <span data-year></span> All rights reserved.</p>
+    </div>
+  </footer>
+
+  <button class="back-top" id="back-top" title="回到顶部">↑</button>
+
+  <script src="js/main.js"></script>
+  <script src="js/background.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/notice.js"></script>
+  <script src="js/account.js"></script>
+</body>
+</html>

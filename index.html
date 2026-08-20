@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DY导航站 · 工具 & 游戏 & 社交</title>
+  <meta name="description" content="工具、游戏、下载网址与联系社交一站式导航" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- 动态壁纸背景层 -->
+  <div id="bg-layer"></div>
+
+  <!-- 顶部导航栏 -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a class="logo" href="index.html">
+        <img class="logo-img" src="assets/网站左边标题图片.jpg" alt="DY导航站" />
+        <span class="logo-text">DY导航站</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html">首页</a>
+        <a href="tools.html">工具导航</a>
+        <a href="games.html">游戏导航</a>
+        <a href="music.html">音乐</a>
+        <a href="message.html">留言板</a>
+        <a href="chat.html">聊天</a>
+        <a href="online-games.html">在线游戏</a>
+        <a href="contact.html">联系社交</a>
+      </div>
+      <div class="nav-actions">
+        <div class="bg-toggle-wrap">
+          <button class="bg-toggle" id="bg-toggle" title="动态壁纸">🎨</button>
+          <div class="bg-menu" id="bg-menu">
+            <div class="bg-menu-title">视频壁纸</div>
+            <button data-bg="auto">🎬 自动(按时间)</button>
+            <button data-bg="day">☀️ 日间</button>
+            <button data-bg="night">🌙 夜间</button>
+            <div class="bg-menu-divider"></div>
+            <div class="bg-menu-title">特效</div>
+            <button data-bg="stars">🌌 星空</button>
+            <button data-bg="petals">🌸 花瓣</button>
+            <button data-bg="aurora">🌊 极光</button>
+            <button data-bg="off">✖️ 关闭</button>
+          </div>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" title="切换深浅色">🌙</button>
+        <button class="acct-nav" id="nav-login-btn" title="登录">👤 登录</button>
+        <div class="acct-nav-user" id="nav-user" style="display:none;">
+          <span class="acct-nav-name" id="nav-user-name"></span>
+          <button class="acct-nav-logout" id="nav-logout-btn" title="退出登录">退出</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 首页主视觉 + 搜索 -->
+  <header class="hero container">
+    <h1>🧭 DY导航站</h1>
+    <p>工具 · 游戏 · 下载 · 社交,一个页面全搞定。搜索你想要的网站,或从下方分类进入。</p>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input
+        class="search-input"
+        id="home-search"
+        type="text"
+        placeholder="搜索工具、游戏、网站…例如:GitHub / Steam / AI"
+        autocomplete="off"
+      />
+      <div class="search-results" id="search-results"></div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- 分类入口 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="section-title"><span class="emoji">🗂️</span>分类导航</div>
+        <div class="section-sub">点击进入对应板块</div>
+      </div>
+      <div class="entry-grid">
+        <a class="entry-card" href="tools.html">
+          <div class="entry-icon">🛠️</div>
+          <div>
+            <h3>工具导航</h3>
+            <p>开发、在线工具、设计、效率、AI、下载</p>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+        <a class="entry-card" href="games.html">
+          <div class="entry-icon">🎮</div>
+          <div>
+            <h3>游戏导航</h3>
+            <p>游戏平台、下载、网页游戏、资讯</p>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+        <a class="entry-card" href="contact.html">
+          <div class="entry-icon">💬</div>
+          <div>
+            <h3>联系社交</h3>
+            <p>邮箱、QQ 等联系方式</p>
+          </div>
+          <span class="arrow">→</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- 热门推荐 -->
+    <section class="section">
+      <div class="section-head">
+        <div class="section-title"><span class="emoji">🔥</span>热门推荐</div>
+        <div class="section-sub">大家都在用</div>
+      </div>
+      <div class="grid" id="hot-container"></div>
+    </section>
+
+  </main>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container">
+      <p>🧭 DY导航站 · 由 <a href="contact.html">岛屿</a> 整理维护</p>
+      <p style="margin-top:4px">© <span data-year></span> All rights reserved.</p>
+    </div>
+  </footer>
+
+  <button class="back-top" id="back-top" title="回到顶部">↑</button>
+
+  <script src="js/main.js"></script>
+  <script src="js/background.js"></script>
+  <script src="js/music.js"></script>
+  <script src="js/easter.js"></script>
+  <script src="js/notice.js"></script>
+  <script src="js/account.js"></script>
+</body>
+</html>
