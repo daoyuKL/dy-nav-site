@@ -18,6 +18,7 @@ const MAX_PLAYERS = 12;
 const MAX_NAME = 12;
 const MAX_CHAT = 100;
 const SECONDS = { kill: 25, seer: 20, witch: 20, discuss: 60, vote: 30, shoot: 20 };
+const RECONNECT_GRACE = 12000; // 掉线宽限:12 秒内同身份重连恢复身份/生死状态(刷新/挂后台)
 
 const ROLE_NAMES = { wolf: "🐺 狼人", seer: "🔮 预言家", witch: "🧪 女巫", hunter: "🏹 猎人", villager: "👨‍🌾 村民" };
 const GOOD_NAMES = { seer: "预言家", witch: "女巫", hunter: "猎人", villager: "村民" };
@@ -556,11 +557,31 @@ function handleMessage(conn, raw) {
   switch (msg.t) {
     case "join": {
       if (p) return;
+      const cid = String(msg.cid || "").slice(0, 64);
+      /* 掉线宽限内同身份(cid)重连:游戏进行中也可恢复(保留身份/生死),刷新/挂后台能"跟回来" */
+      const old = cid ? room.players.find((x) => x.cid === cid && x.offline && x.conn === null) : null;
+      if (old) {
+        if (old._offlineTimer) { clearTimeout(old._offlineTimer); old._offlineTimer = null; }
+        old.offline = 0;
+        old.conn = conn;
+        old.name = String(msg.name || "").trim().slice(0, MAX_NAME) || old.name;
+        conn.player = old;
+        conn.send({ t: "joined", id: old.id, name: old.name, players: publicPlayers(), min: MIN_PLAYERS, max: MAX_PLAYERS, ownerId: room.ownerId });
+        broadcast({ t: "players", players: publicPlayers(), ownerId: room.ownerId }, old.id);
+        broadcast({ t: "system", text: old.name + " 回来了(刷新后自动重连)" });
+        /* 游戏进行中:补发身份与阶段,让重连玩家继续游戏 */
+        if (room.phase !== "lobby" && old.role) {
+          const wl = old.role === "wolf" ? wolves().map((w) => ({ id: w.id, name: w.name })) : [];
+          conn.send({ t: "role", role: old.role, roleName: ROLE_NAMES[old.role], wolves: wl });
+          conn.send({ t: "phase", phase: room.phase, seconds: 0, deaths: room.lastDeaths || [] });
+        }
+        return;
+      }
       if (room.players.length >= MAX_PLAYERS) { conn.send({ t: "full" }); conn.socket.destroy(); return; }
       if (room.phase !== "lobby") { conn.send({ t: "system", text: "游戏已在进行中,无法加入" }); return; }
       const name = String(msg.name || "").trim().slice(0, MAX_NAME) || "玩家" + (room.players.length + 1);
       const qq = /^\d{5,11}$/.test(String(msg.qq || "")) ? String(msg.qq) : "";
-      const player = { conn, id: crypto.randomBytes(6).toString("hex"), name, qq, role: null, alive: true };
+      const player = { conn, id: crypto.randomBytes(6).toString("hex"), name, qq, role: null, alive: true, cid, offline: 0 };
       room.players.push(player);
       conn.player = player;
       // 第一个进入房间的人是房主
@@ -724,7 +745,19 @@ function handleMessage(conn, raw) {
 function onDisconnect(conn) {
   const p = byConn(conn);
   if (!p) return;
-  removePlayer(p.id);
+  conn.player = null;
+  if (room.phase === "lobby" || room.phase === "over") {
+    /* 大厅/已结束:直接移除 */
+    removePlayer(p.id);
+    return;
+  }
+  /* 游戏中掉线:12 秒宽限,同身份重连可恢复(刷新/挂后台),超时再移除 */
+  p.offline = Date.now();
+  p.conn = null;
+  if (p._offlineTimer) clearTimeout(p._offlineTimer);
+  p._offlineTimer = setTimeout(() => {
+    if (p.offline && p.conn === null && room.players.find((x) => x.id === p.id)) removePlayer(p.id);
+  }, RECONNECT_GRACE);
 }
 
 /* ==========================================================================

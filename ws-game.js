@@ -16,6 +16,7 @@ const MAX_NAME = 12;
 const MAX_GUESS = 30;
 const KICK_SECONDS = 30; // 踢人投票时长(秒)
 const KICK_RATIO = 3 / 4; // 需所有真人 3/4 同意
+const RECONNECT_GRACE = 12000; // 掉线宽限:12 秒内同身份重连恢复状态(刷新/挂后台)
 
 /* —— 词库 —— */
 const WORDS = [
@@ -500,7 +501,23 @@ function handleMessage(conn, raw) {
       }
       const name = String(msg.name || "").trim().slice(0, MAX_NAME) || "玩家" + (room.players.length + 1);
       const qq = /^\d{5,11}$/.test(String(msg.qq || "")) ? String(msg.qq) : "";
-      const player = { conn, id: crypto.randomBytes(6).toString("hex"), name, score: 0, qq };
+      const cid = String(msg.cid || "").slice(0, 64);
+
+      /* 掉线宽限期内同身份(cid)重连:恢复原玩家(保留分数等状态),刷新/挂后台能"跟回来" */
+      const old = cid ? room.players.find((x) => x.cid === cid && x.offline && x.conn === null) : null;
+      if (old) {
+        if (old._offlineTimer) { clearTimeout(old._offlineTimer); old._offlineTimer = null; }
+        old.offline = 0;
+        old.conn = conn;
+        old.name = name;
+        conn.player = old;
+        conn.send({ t: "joined", id: old.id, name: old.name, players: publicPlayers(), started: room.started, min: MIN_PLAYERS, ownerId: room.ownerId });
+        broadcast({ t: "players", players: publicPlayers(), started: room.started, min: MIN_PLAYERS, ownerId: room.ownerId }, old.id);
+        broadcast({ t: "chat", name: "系统", text: name + " 回来了(刷新后自动重连)" }, old.id);
+        return;
+      }
+
+      const player = { conn, id: crypto.randomBytes(6).toString("hex"), name, score: 0, qq, cid, offline: 0 };
       room.players.push(player);
       conn.player = player;
       // 第一个进入房间的人是房主
@@ -645,7 +662,25 @@ function handleMessage(conn, raw) {
 function onDisconnect(conn) {
   const p = byConn(conn);
   if (!p) return;
-  removePlayer(p.id);
+  conn.player = null;
+  /* 踢人投票目标掉线:立即取消投票 */
+  if (room.kickVote && room.kickVote.targetId === p.id) {
+    clearTimeout(room.kickVote.timer);
+    room.kickVote = null;
+    broadcast({ t: "kickvote-end", ok: false, targetId: p.id, targetName: p.name, agree: 0, needed: 0, reason: "目标已离开房间" });
+  }
+  if (!room.started) {
+    /* 大厅:直接移除(无状态可保留) */
+    removePlayer(p.id);
+    return;
+  }
+  /* 游戏中掉线:12 秒宽限,同身份重连可恢复(刷新/挂后台),超时再移除 */
+  p.offline = Date.now();
+  p.conn = null;
+  if (p._offlineTimer) clearTimeout(p._offlineTimer);
+  p._offlineTimer = setTimeout(() => {
+    if (p.offline && p.conn === null && byId(p.id)) removePlayer(p.id);
+  }, RECONNECT_GRACE);
 }
 
 /* ==========================================================================

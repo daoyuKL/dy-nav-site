@@ -157,6 +157,8 @@ setInterval(() => {
   const now = Date.now();
   instances.forEach((inst, k) => {
     if (inst.system) return; // 系统房间(一起听)永久存在,不清理
+    /* 刚创建的房间给 15 秒缓冲,避免创建后还没人连上就被回收 */
+    if (now - inst.createdAt < 15000) return;
     let cnt = 0;
     try { cnt = inst.mod.count(); } catch (e) { /* 模块异常按空处理 */ }
     if (now - inst.createdAt > ROOM_TTL) {

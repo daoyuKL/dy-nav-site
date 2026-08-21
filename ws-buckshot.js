@@ -20,6 +20,7 @@ const MAX_PLAYERS = 4;
 const MAX_NAME = 12;
 const MAX_HP = 6; // 每人 6 滴血(所有模式一致),香烟可回满
 const LOSS_TO_ELIMINATE = 2; // 累计 2 次本回合出局即淘汰(多回合制,2 人局至少 3 回合)
+const RECONNECT_GRACE = 12000; // 掉线宽限:12 秒内同身份重连恢复血量/败场(刷新/挂后台)
 const TURN_SECONDS = 60; // 每回合限时,超时自动跳过
 const MAX_CHAT = 100;
 
@@ -215,6 +216,7 @@ function rackShells(round) {
   room.liveLeft = live;
   room.blankLeft = total - live;
   room.knifeArmed = false;
+  room.roundInfo = { total, live, blank: total - live }; // 重连时补发用
   return { total, live, blank: total - live };
 }
 
@@ -523,6 +525,39 @@ function handleMessage(conn, raw) {
 
 function doJoin(conn, data) {
   if (conn.player) return; // 已加入
+  const cid = String(data.cid || "").slice(0, 64);
+
+  /* 掉线宽限内同身份(cid)重连:恢复原玩家(保留血量/败场),刷新/挂后台能"跟回来" */
+  const old = cid ? room.players.find((x) => x.cid === cid && x.offline && x.conn === null) : null;
+  if (old) {
+    if (old._offlineTimer) { clearTimeout(old._offlineTimer); old._offlineTimer = null; }
+    old.offline = 0;
+    old.conn = conn;
+    old.name = String(data.name || "").trim().slice(0, MAX_NAME) || old.name;
+    conn.player = old;
+    conn.send({ t: "joined", id: old.id, players: room.players.map(publicPlayer), ownerId: room.ownerId, min: MIN_PLAYERS, max: MAX_PLAYERS, phase: room.phase });
+    broadcastPlayers();
+    system(`👤 ${old.name} 回来了(刷新后自动重连)`);
+    /* 游戏中重连:补发回合状态,让玩家接着玩 */
+    if (room.phase === "playing") {
+      const ri = room.roundInfo || { total: room.shells.length, live: room.liveLeft, blank: room.blankLeft };
+      conn.send({
+        t: "round-start",
+        round: room.round,
+        total: ri.total,
+        live: ri.live,
+        blank: ri.blank,
+        remaining: room.shells.length - room.index,
+        players: room.players.map(publicPlayer),
+        maxHp: MAX_HP,
+      });
+      conn.send({ t: "my-items", items: old.items });
+      const cur = currentPlayer();
+      conn.send({ t: "turn", id: cur ? cur.id : old.id, name: cur ? cur.name : "", seconds: TURN_SECONDS });
+    }
+    return;
+  }
+
   if (room.phase === "playing") {
     conn.send({ t: "full", error: "游戏进行中,请稍后再来" });
     return;
@@ -543,6 +578,8 @@ function doJoin(conn, data) {
     items: {},
     cuffed: false,
     losses: 0,
+    cid,
+    offline: 0,
   };
   room.players.push(p);
   conn.player = p;
@@ -590,20 +627,27 @@ function onDisconnect(conn) {
     }
     return;
   }
-  /* 游戏中掉线:视为出局 */
-  if (p.alive) {
-    p.alive = false;
-    broadcast({ t: "player-dead", id: p.id, name: p.name + "(掉线)", players: room.players.map(publicPlayer) });
-    system(`💀 ${p.name} 掉线了,视作出局`);
-    const alive = aliveList();
-    if (alive.length <= 1) {
-      endGame();
-      return;
+  /* 游戏中掉线:12 秒宽限,同身份重连可恢复(刷新/挂后台);超时视作出局 */
+  p.offline = Date.now();
+  p.conn = null;
+  if (p._offlineTimer) clearTimeout(p._offlineTimer);
+  p._offlineTimer = setTimeout(() => {
+    if (!p.offline || p.conn !== null) return;
+    if (!room.players.find((x) => x.id === p.id)) return;
+    if (p.alive) {
+      p.alive = false;
+      broadcast({ t: "player-dead", id: p.id, name: p.name + "(掉线)", players: room.players.map(publicPlayer) });
+      system(`💀 ${p.name} 掉线超时,视作出局`);
+      const alive = aliveList();
+      if (alive.length <= 1) {
+        endGame();
+        return;
+      }
+      if (currentPlayer() && currentPlayer().id === p.id) {
+        nextTurn(p.id);
+      }
     }
-    if (currentPlayer() && currentPlayer().id === p.id) {
-      nextTurn(p.id);
-    }
-  }
+  }, RECONNECT_GRACE);
 }
 
 /* ==========================================================================

@@ -37,6 +37,12 @@
   var knifeArmed = false;
   var roomCode = null;   // 当前房间号
   var retryCount = 0;    // 重连次数(防止房间解散后无限重连)
+  /* 稳定身份:刷新/挂后台后自动回房用 */
+  var cid = "";
+  try {
+    cid = localStorage.getItem("dynav-cid") || ("gc" + Math.random().toString(36).slice(2, 10));
+    localStorage.setItem("dynav-cid", cid);
+  } catch (e) { cid = ""; }
 
   function $(id) { return document.getElementById(id); }
 
@@ -247,7 +253,7 @@
         qq = u.qq;
       }
     }
-    send({ t: "join", name: name, qq: qq });
+    send({ t: "join", name: name, qq: qq, cid: cid });
   }
 
   /* —— 创建房间:向服务器申请房间号并连接 —— */
@@ -362,6 +368,8 @@
         players = data.players || [];
         roomOwnerId = data.ownerId || null;
         phase = data.phase || "lobby";
+        /* 记住房间:刷新/挂后台后自动回来 */
+        try { localStorage.setItem("dynav-room", roomCode || ""); } catch (e) { /* 忽略 */ }
         renderAll();
         log("🔫 已加入房间,等满 2 人即可开始", "sys");
         break;
@@ -551,11 +559,15 @@
     });
   }
 
-  /* 自动加入:URL 带 ?room=XXXX */
+  /* 自动加入:URL 带 ?room=XXXX,或上次的房间(刷新/挂后台后"跟回来") */
   (function () {
+    var code = null;
     var m = (location.search || "").match(/[?&]room=([A-Za-z0-9]+)/);
-    if (m) {
-      var code = m[1].toUpperCase();
+    if (m) code = m[1].toUpperCase();
+    if (!code) {
+      try { code = localStorage.getItem("dynav-room"); } catch (e) { /* 忽略 */ }
+    }
+    if (code) {
       var ri = $("br-room-input");
       if (ri) ri.value = code;
       setTimeout(joinRoomByCode, 400);
