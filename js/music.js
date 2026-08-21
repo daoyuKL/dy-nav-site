@@ -628,6 +628,9 @@ var __spreadValues = function __spreadValues(a, b) {
     onEnded: function (cb) {
       audio.addEventListener("ended", cb);
     },
+    onError: function (cb) {
+      audio.addEventListener("error", cb);
+    },
     /* 房间模式开关:禁用个人播放器按钮,高亮 🎧 */
     setRoomMode: function (on) {
       roomMode = !!on;

@@ -24,11 +24,19 @@
   var current = null;
   var playing = false;
   var posTimer = null; // DJ 位置上报定时器
+  var lastSkipAt = 0;  // 自动跳歌防抖
   var panel = null;
   var panelOpen = false;
   var minimized = false;
   var searchLock = false;
   var leaving = false;
+
+  /* 稳定身份:同一浏览器重复进入用同一 cid,服务器据此顶掉旧连接,不留"死人" */
+  var cid = "";
+  try {
+    cid = localStorage.getItem("lt-cid") || ("lt" + Math.random().toString(36).slice(2, 10));
+    localStorage.setItem("lt-cid", cid);
+  } catch (e) { cid = ""; }
 
   function $(id) { return document.getElementById(id); }
   function esc(s) {
@@ -185,6 +193,7 @@
 
   function joinCode(code) {
     if (!code) return;
+    if (ws && ws.readyState !== WebSocket.CLOSED) { status("已在房间中"); return; }
     fetch("/api/room?game=ws-music&code=" + encodeURIComponent(code))
       .then(function (r) { return r.json(); })
       .then(function (d) {
@@ -205,11 +214,18 @@
   }
 
   function connect(code) {
+    /* 先关掉旧连接,避免重复进入叠出多个玩家 */
+    if (ws) {
+      try { ws.onclose = null; ws.close(); } catch (e) { /* 忽略 */ }
+      ws = null;
+    }
     var proto = location.protocol === "https:" ? "wss://" : "ws://";
     ws = new WebSocket(proto + location.host + "/ws-music?room=" + code);
     ws.onopen = function () {
       var name = defaultName() || "听众";
-      send({ t: "join", name: name, qq: window.Account && window.Account.getUser() ? window.Account.getUser().qq : "" });
+      var qq = "";
+      if (window.Account && window.Account.getUser()) qq = window.Account.getUser().qq || "";
+      send({ t: "join", name: name, qq: qq, cid: cid });
     };
     ws.onmessage = function (e) {
       try { onMessage(JSON.parse(e.data)); } catch (err) { /* 忽略坏消息 */ }
@@ -330,11 +346,21 @@
     }
   }
 
-  /* —— DJ:位置上报 + 歌曲结束推进 —— */
+  /* —— DJ:位置上报 + 歌曲结束推进 + VIP/版权歌自动跳过 —— */
   function startDjSync() {
     if (posTimer) clearInterval(posTimer);
     if (M() && M().onEnded) M().onEnded(function () {
       if (isDj && joined) send({ t: "song-end" });
+    });
+    if (M() && M().onError) M().onError(function () {
+      /* 当前歌曲无法播放(常见于未登录听 VIP/版权受限),自动跳下一首,5 秒防抖 */
+      if (isDj && joined) {
+        var now = Date.now();
+        if (now - lastSkipAt < 5000) return;
+        lastSkipAt = now;
+        toast("⚠️ 当前歌曲无法播放(VIP/版权限制),已自动跳过");
+        send({ t: "song-end" });
+      }
     });
     posTimer = setInterval(function () {
       if (isDj && joined && playing && M()) {

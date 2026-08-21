@@ -231,12 +231,26 @@ function doJoin(conn, data) {
     return;
   }
   const name = String(data.name || "").trim().slice(0, MAX_NAME) || "听众" + (room.players.length + 1);
+  const cid = String(data.cid || "").slice(0, 64);
   const p = {
     conn,
     id: crypto.randomBytes(6).toString("hex"),
     name,
     qq: String(data.qq || ""),
+    cid,
   };
+
+  /* 同身份(cid)重复进入:顶掉旧连接,防止留下"死人"占位 */
+  if (cid) {
+    const dup = room.players.find((x) => x.cid && x.cid === cid);
+    if (dup) {
+      if (dup.id === room.djId) room.djId = p.id; // DJ 身份转移给新连接
+      try { dup.conn.send({ t: "system", text: "检测到重复进入,旧连接已断开" }); } catch (e) { /* 忽略 */ }
+      try { dup.conn.socket.destroy(); } catch (e) { /* 忽略 */ }
+      room.players = room.players.filter((x) => x !== dup);
+    }
+  }
+
   room.players.push(p);
   conn.player = p;
   if (!room.djId) room.djId = p.id;
