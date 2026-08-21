@@ -71,6 +71,7 @@ const TYPES = {
   ".mp4": "video/mp4",
   ".webm": "video/webm",
   ".mp3": "audio/mpeg",
+  ".apk": "application/vnd.android.package-archive",
 };
 
 /* ==========================================================================

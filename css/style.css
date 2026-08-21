@@ -3372,3 +3372,37 @@ img { max-width: 100%; display: block; }
   border-radius: 999px;
   cursor: pointer;
 }
+
+
+/* —— APK 下载按钮 —— */
+.apk-download {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.apk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 30px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  border-radius: 999px;
+  box-shadow: var(--shadow-lg);
+  transition: transform var(--transition), opacity var(--transition);
+}
+
+.apk-btn:hover {
+  transform: translateY(-2px);
+  opacity: 0.92;
+}
+
+.apk-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
