@@ -3087,3 +3087,254 @@ img { max-width: 100%; display: block; }
   /* 手机端不显示「开启背景音乐」大按钮,只保留右下角播放器 */
   .music-open { display: none !important; }
 }
+
+
+/* ==========================================================================
+   恶魔轮盘(2-4 人联机 · 深色主题)
+   ========================================================================== */
+.br-wrap {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 22px 20px 26px;
+  background: linear-gradient(160deg, #181a22, #101218);
+  border: 1px solid #2c2f3d;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  color: #e6e8ee;
+}
+
+.br-round {
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ff6b6b;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+}
+
+/* —— 玩家状态 —— */
+.br-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.br-pcard {
+  flex: 1 1 150px;
+  min-width: 130px;
+  background: #1c1f2a;
+  border: 1px solid #2c2f3d;
+  border-radius: 12px;
+  padding: 10px 12px;
+  transition: border-color 0.2s;
+}
+
+.br-pcard.turn {
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.25);
+}
+
+.br-pcard.me {
+  border-color: #6d8bff;
+}
+
+.br-pcard.dead {
+  opacity: 0.45;
+}
+
+.br-pname {
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.br-hpbar {
+  height: 10px;
+  background: #2a2e3d;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.br-hpfill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  transition: width 0.35s ease;
+}
+
+.br-hpnum {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #9ca3af;
+  text-align: right;
+}
+
+/* —— 弹仓 —— */
+.br-chamber {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #a6adbb;
+  background: #1c1f2a;
+  border: 1px dashed #2c2f3d;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 14px;
+}
+
+.br-bullets {
+  margin-top: 6px;
+  font-size: 1.05rem;
+  letter-spacing: 3px;
+}
+
+/* —— 射击区 —— */
+.br-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.br-btn {
+  flex: 1 1 160px;
+  padding: 13px 16px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.br-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+.br-btn-self {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.br-turn-wait {
+  width: 100%;
+  text-align: center;
+  font-size: 0.95rem;
+  color: #a6adbb;
+  padding: 10px 0;
+}
+
+.br-tip {
+  width: 100%;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+/* —— 道具 —— */
+.br-items {
+  margin-bottom: 14px;
+}
+
+.br-items-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+
+.br-items-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.br-item {
+  padding: 9px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #e6e8ee;
+  background: #232734;
+  border: 1px solid #3a3f52;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.br-item:hover { border-color: #6d8bff; color: #8aa2ff; }
+
+.br-item:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.br-items-empty {
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+
+/* —— 聊天日志 —— */
+.br-chat {
+  background: #1c1f2a;
+  border: 1px solid #2c2f3d;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.br-log {
+  height: 150px;
+  overflow-y: auto;
+  background: #14161c;
+  border: 1px solid #2c2f3d;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  color: #c9cedb;
+  line-height: 1.7;
+  margin-bottom: 8px;
+}
+
+.br-log-item.sys { color: #8aa2ff; font-size: 0.76rem; }
+.br-log-item.ok { color: #4ade80; }
+.br-log-item.err { color: #f87171; }
+
+.br-chat-row {
+  display: flex;
+  gap: 8px;
+}
+
+.br-chat-row .chat-input {
+  font-size: 16px;
+  background: #14161c;
+  color: #e6e8ee;
+  border-color: #2c2f3d;
+}
+
+/* —— 大厅玩家列表 —— */
+.br-lobby-players {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.br-lp {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.br-lp.muted { color: var(--text-muted); }
+
+.br-start { display: block; }
+
+/* —— 手机端 —— */
+@media (max-width: 640px) {
+  .br-wrap { padding: 14px 12px 18px; }
+  .br-btn { flex: 1 1 130px; padding: 14px 10px; font-size: 0.9rem; }
+  .br-pcard { min-width: 110px; }
+  .br-item { font-size: 0.82rem; padding: 10px 12px; }
+  .br-log { height: 130px; }
+}

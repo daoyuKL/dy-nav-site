@@ -28,6 +28,7 @@ const path = require("path");
 const crypto = require("crypto");
 const { handleUpgrade } = require("./ws-game"); // 你画我猜 WebSocket 服务
 const { handleUpgrade: handleWerewolfUpgrade } = require("./ws-werewolf"); // 狼人杀 WebSocket 服务
+const { handleUpgrade: handleBuckshotUpgrade } = require("./ws-buckshot"); // 恶魔轮盘 WebSocket 服务
 
 const ROOT = __dirname;
 const PORT = process.env.PORT || 8080; // 云平台会注入 PORT 环境变量,本地默认 8080
@@ -834,11 +835,13 @@ const server = http.createServer((req, res) => {
 });
 
 /* WebSocket 升级:按路径分发
-   /ws           → 你画我猜
-   /ws-werewolf  → 狼人杀 */
+   /ws            → 你画我猜
+   /ws-werewolf   → 狼人杀
+   /ws-buckshot   → 恶魔轮盘 */
 server.on("upgrade", (req, socket) => {
   const wsPath = (req.url || "").split("?")[0];
   if (wsPath === "/ws-werewolf") handleWerewolfUpgrade(req, socket);
+  else if (wsPath === "/ws-buckshot") handleBuckshotUpgrade(req, socket);
   else handleUpgrade(req, socket);
 });
 
