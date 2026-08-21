@@ -325,6 +325,12 @@
         renderRoom();
         break;
 
+      case "queue":
+        /* 播放推进后同步最新列表(播完的歌从列表消失) */
+        queue = d.queue || [];
+        renderRoom();
+        break;
+
       case "play-state":
         playing = !!d.playing;
         if (!isDj) {

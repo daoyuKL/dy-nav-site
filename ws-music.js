@@ -161,12 +161,14 @@ function advance() {
     room.playing = true;
     room.position = 0;
     broadcast({ t: "song", song: room.current, playing: true, position: 0 });
+    broadcast({ t: "queue", queue: room.queue }); // 同步最新列表(播完的从列表消失)
     system(`🎵 开始播放:${room.current.name}${room.current.artist ? " - " + room.current.artist : ""}`);
   } else {
     room.current = null;
     room.playing = false;
     room.position = 0;
     broadcast({ t: "song", song: null, playing: false, position: 0 });
+    broadcast({ t: "queue", queue: room.queue });
     system("📭 播放列表已空,大家来推荐歌曲吧");
   }
 }
