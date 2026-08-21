@@ -16,7 +16,7 @@
     knife: "🔪 小刀", cuffs: "🧤 手铐", reverser: "🔄 逆转器", phone: "📱 手机"
   };
   var ITEM_DESC = {
-    cig: "恢复 1 点生命(上限 4)",
+    cig: "恢复 1 点生命(上限 6)",
     beer: "退出当前一发子弹,不触发",
     lens: "查看弹仓当前子弹",
     knife: "下一发实弹伤害翻倍(2 点)",
@@ -137,7 +137,7 @@
       if (!p.alive) cls += " dead";
       if (phase === "playing" && p.id === turnId && p.alive) cls += " turn";
       return '<div class="' + cls + '">' +
-        '<div class="br-pname">' + esc(p.name) + (p.cuffed ? " 🧤" : "") + (p.id === myId ? " (我)" : "") + "</div>" +
+        '<div class="br-pname">' + esc(p.name) + (p.losses > 0 ? " ⚔️" + p.losses + "败" : "") + (p.cuffed ? " 🧤" : "") + (p.id === myId ? " (我)" : "") + "</div>" +
         '<div class="br-hpbar"><div class="br-hpfill" style="width:' + pct + '%"></div></div>' +
         '<div class="br-hpnum">' + p.hp + "/" + p.maxHp + (p.alive ? "" : " 💀") + "</div>" +
         "</div>";

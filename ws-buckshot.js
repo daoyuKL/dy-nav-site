@@ -18,7 +18,8 @@ const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 4;
 const MAX_NAME = 12;
-const MAX_HP = 4;
+const MAX_HP = 6; // 每人 6 滴血(所有模式一致),香烟可回满
+const LOSS_TO_ELIMINATE = 2; // 累计 2 次本回合出局即淘汰(多回合制,2 人局至少 3 回合)
 const TURN_SECONDS = 60; // 每回合限时,超时自动跳过
 const MAX_CHAT = 100;
 
@@ -130,10 +131,11 @@ class WSConn {
    ========================================================================== */
 
 const room = {
-  players: [],   // {conn, id, name, qq, hp, maxHp, alive, items:{}, cuffed}
+  players: [],   // {conn, id, name, qq, hp, maxHp, alive, items:{}, cuffed, losses}
   ownerId: null,
   phase: "lobby", // lobby | playing | over
   round: 0,
+  roundOver: false, // 本回合是否已结束(有人出局,等待进入下一回合)
   shells: [],     // 'live' | 'blank'
   index: 0,
   liveLeft: 0,
@@ -148,7 +150,7 @@ function aliveList() {
 }
 
 function publicPlayer(p) {
-  return { id: p.id, name: p.name, qq: p.qq || "", hp: p.hp, maxHp: p.maxHp, alive: p.alive, cuffed: !!p.cuffed };
+  return { id: p.id, name: p.name, qq: p.qq || "", hp: p.hp, maxHp: p.maxHp, alive: p.alive, cuffed: !!p.cuffed, losses: p.losses || 0 };
 }
 
 function broadcast(obj, exceptConn) {
@@ -198,10 +200,12 @@ function currentPlayer() {
   return list[room.turnPos % list.length];
 }
 
-/* —— 装填子弹 —— */
-function rackShells() {
-  const n = aliveList().length;
-  const total = n * 2; // 2人4发 3人6发 4人8发
+/* —— 装填子弹(按回合数):第1把 3 发,第2把 4 发,第3把及以后 5-9 发 —— */
+function rackShells(round) {
+  let total;
+  if (round <= 1) total = 3;
+  else if (round === 2) total = 4;
+  else total = 5 + Math.floor(Math.random() * 5); // 5-9 发
   const live = 1 + Math.floor(Math.random() * (total - 1)); // 至少1实弹1空包
   const shells = [];
   for (let i = 0; i < live; i++) shells.push("live");
@@ -224,7 +228,8 @@ function startRound() {
     p.items = rollItems(alive.length >= 3 ? ITEM_POOL_3P : ITEM_POOL_2P);
   });
   room.round++;
-  const info = rackShells();
+  room.roundOver = false;
+  const info = rackShells(room.round);
   room.turnPos = 0;
 
   broadcast({
@@ -281,6 +286,7 @@ function nextTurn(afterId) {
 function shoot(conn, targetId) {
   const shooter = conn.player;
   if (room.phase !== "playing" || !shooter || !shooter.alive) return;
+  if (room.roundOver) return; // 本回合已结束,等待下一回合
   if (currentPlayer() && currentPlayer().id !== shooter.id) return; // 还没轮到你
   if (room.index >= room.shells.length) return; // 弹仓空
 
@@ -331,18 +337,38 @@ function shoot(conn, targetId) {
     system(`${shellTxt}!${shooter.name} 开枪,${target.name} 安然无恙`);
   }
 
-  /* 死亡判定 */
+  /* 出局判定:本回合出局 → 累计败场;累计 2 败 → 淘汰出局
+     多回合制:回合结束,存活玩家下一回合生命回满重新装填 */
   if (target.hp <= 0) {
-    target.alive = false;
     target.hp = 0;
+    room.roundOver = true;
+    clearTimer();
+    target.losses = (target.losses || 0) + 1;
     broadcast({ t: "player-dead", id: target.id, name: target.name, players: room.players.map(publicPlayer) });
-    system(`💀 ${target.name} 倒下了!`);
-    const alive = aliveList();
-    if (alive.length <= 1) {
+    system(`💀 ${target.name} 本回合出局!(累计 ${target.losses}/${LOSS_TO_ELIMINATE} 败)`);
+    if (target.losses >= LOSS_TO_ELIMINATE) {
+      target.alive = false;
+      system(`⚔️ ${target.name} 已累计 ${LOSS_TO_ELIMINATE} 败,被淘汰出局!`);
+    }
+    const remaining = room.players.filter((p) => p.alive);
+    if (remaining.length <= 1) {
       endGame();
       return;
     }
-    /* 重新装填,进入下一回合 */
+    /* 进入下一回合 */
+    setTimeout(() => {
+      if (room.phase !== "playing") return;
+      startRound();
+    }, 2200);
+    return;
+  }
+
+  /* 弹仓打空且无人出局:本回合平局,自动进入下一回合(子弹更多)
+     避免 6 血 + 少数子弹的回合无人能打死而卡死 */
+  if (room.index >= room.shells.length) {
+    room.roundOver = true;
+    clearTimer();
+    system(`🔁 弹仓已空,无人出局,进入下一回合`);
     setTimeout(() => {
       if (room.phase !== "playing") return;
       startRound();
@@ -367,8 +393,20 @@ function shoot(conn, targetId) {
 function useItem(conn, item) {
   const p = conn.player;
   if (room.phase !== "playing" || !p || !p.alive) return;
+  if (room.roundOver) return; // 本回合已结束
   if (currentPlayer() && currentPlayer().id !== p.id) return;
   if (!p.items[item]) return;
+
+  /* 无效使用不消耗道具 */
+  if (item === "cig" && p.hp >= p.maxHp) {
+    system(`🚬 ${p.name} 生命已满,香烟无法使用`);
+    return;
+  }
+  if (item === "beer" && room.index >= room.shells.length) {
+    system(`🍺 ${p.name} 弹仓已空,啤酒无法使用`);
+    return;
+  }
+
   p.items[item]--;
   if (p.items[item] <= 0) delete p.items[item];
 
@@ -377,18 +415,14 @@ function useItem(conn, item) {
 
   if (item === "cig") {
     p.hp = Math.min(p.maxHp, p.hp + 1);
-    system(`🚬 ${p.name} 抽了根烟,恢复 1 点生命`);
+    system(`🚬 ${p.name} 抽了根烟,恢复 1 点生命(${p.hp}/${p.maxHp})`);
     broadcastPlayers();
   } else if (item === "beer") {
-    if (room.index < room.shells.length) {
-      const sh = room.shells[room.index++];
-      if (sh === "live") room.liveLeft--;
-      else room.blankLeft--;
-      broadcast({ t: "chamber", remaining: room.shells.length - room.index, liveLeft: room.liveLeft, blankLeft: room.blankLeft });
-      system(`🍺 ${p.name} 灌了瓶啤酒,退出一发子弹:${sh === "live" ? "💥 实弹" : "💨 空包"}`);
-    } else {
-      system(`🍺 ${p.name} 灌了瓶啤酒,弹仓已空,什么都没退出`);
-    }
+    const sh = room.shells[room.index++];
+    if (sh === "live") room.liveLeft--;
+    else room.blankLeft--;
+    broadcast({ t: "chamber", remaining: room.shells.length - room.index, liveLeft: room.liveLeft, blankLeft: room.blankLeft });
+    system(`🍺 ${p.name} 灌了瓶啤酒,退出一发子弹:${sh === "live" ? "💥 实弹" : "💨 空包"}`);
   } else if (item === "lens") {
     const cur = room.index < room.shells.length ? room.shells[room.index] : null;
     p.conn.send({ t: "lens-result", shell: cur });
@@ -447,7 +481,7 @@ function endGame() {
   setTimeout(() => {
     room.phase = "lobby";
     room.round = 0;
-    room.players.forEach((p) => { p.hp = p.maxHp; p.alive = true; p.cuffed = false; p.items = {}; });
+    room.players.forEach((p) => { p.hp = p.maxHp; p.alive = true; p.cuffed = false; p.items = {}; p.losses = 0; });
     if (!room.ownerId || !room.players.find((x) => x.id === room.ownerId)) {
       const first = room.players.find((x) => x.conn);
       room.ownerId = first ? first.id : null;
@@ -508,6 +542,7 @@ function doJoin(conn, data) {
     alive: true,
     items: {},
     cuffed: false,
+    losses: 0,
   };
   room.players.push(p);
   conn.player = p;
@@ -537,7 +572,7 @@ function doStart(conn) {
   if (room.phase === "playing") return;
   room.phase = "playing";
   room.round = 0;
-  room.players.forEach((x) => { x.alive = true; x.hp = x.maxHp; x.cuffed = false; });
+  room.players.forEach((x) => { x.alive = true; x.hp = x.maxHp; x.cuffed = false; x.losses = 0; });
   broadcast({ t: "game-start", players: room.players.map(publicPlayer), min: MIN_PLAYERS, max: MAX_PLAYERS });
   startRound();
 }
