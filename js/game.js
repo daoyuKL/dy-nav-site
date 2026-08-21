@@ -33,6 +33,8 @@ var __spreadProps = function __spreadProps(a, b) {
   var roomEl = document.getElementById("game-room");
   var nameInput = document.getElementById("game-name");
   var joinBtn = document.getElementById("game-join-btn");
+  var createBtn = document.getElementById("game-create-btn");
+  var roomInput = document.getElementById("game-room-input");
   var lobbyStatus = document.getElementById("game-lobby-status");
   var infoEl = document.getElementById("game-info");
   var startBtn = document.getElementById("game-start-btn");
@@ -63,6 +65,8 @@ var __spreadProps = function __spreadProps(a, b) {
   var ws = null;
   var myId = null;
   var myName = "";
+  var roomCode = null;   // 当前房间号
+  var retryCount = 0;    // 重连次数(防止房间解散后无限重连)
   var isDrawer = false;
   var started = false;
   var roundNo = 0;
@@ -287,7 +291,7 @@ var __spreadProps = function __spreadProps(a, b) {
   if (chatInput) chatInput.addEventListener("keydown", function (e) {
     if (e.key === "Enter") sendChat();
   });
-  function join() {
+  function doJoin() {
     var name = (nameInput.value || "").trim();
     var qq = "";
     if (!name && window.Account) {
@@ -305,9 +309,90 @@ var __spreadProps = function __spreadProps(a, b) {
       qq: qq
     });
   }
-  if (joinBtn) joinBtn.addEventListener("click", join);
+
+  /* —— 创建房间 —— */
+  function createRoom() {
+    if (ws && ws.readyState === WebSocket.OPEN) return;
+    fetch("/api/room?game=ws")
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok) {
+          lobbyStatus.textContent = "⚠️ " + (d && d.error ? d.error : "创建失败");
+          return;
+        }
+        roomCode = d.code;
+        retryCount = 0;
+        lobbyStatus.textContent = "🏠 房间 " + roomCode + " 创建成功,正在连接…";
+        connect(roomCode);
+      })
+      .catch(function () { lobbyStatus.textContent = "⚠️ 创建失败,请确认服务端已更新"; });
+  }
+
+  /* —— 按房间号加入 —— */
+  function joinRoomByCode() {
+    var ri = document.getElementById("game-room-input");
+    if (!ri) return;
+    var code = ri.value.trim().toUpperCase();
+    if (code.length < 4) { lobbyStatus.textContent = "请输入 4 位房间号"; return; }
+    fetch("/api/room?game=ws&code=" + encodeURIComponent(code))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok || !d.exists) {
+          lobbyStatus.textContent = "❌ 房间 " + code + " 不存在或已解散";
+          return;
+        }
+        roomCode = code;
+        retryCount = 0;
+        lobbyStatus.textContent = "🔑 正在加入房间 " + code + " …";
+        connect(code);
+      })
+      .catch(function () { lobbyStatus.textContent = "⚠️ 加入失败,请确认服务端已更新"; });
+  }
+
+  /* —— 复制房间链接 —— */
+  function copyRoomLink() {
+    var url = location.origin + location.pathname + "?room=" + roomCode;
+    var done = function () { alert("房间链接已复制,发给朋友即可加入:" + url); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, function () { fallbackCopy(url, done); });
+    } else {
+      fallbackCopy(url, done);
+    }
+  }
+
+  function fallbackCopy(text, done) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      done();
+    } catch (e) {
+      alert("请手动复制链接:" + text);
+    }
+  }
+
+  function updateRoomCode() {
+    var el = document.getElementById("game-room-code");
+    if (!el) return;
+    if (roomCode) {
+      el.style.display = "";
+      el.innerHTML = "🏠 房间号:<b>" + roomCode + "</b> " +
+        '<button class="br-copy" id="game-copy-btn" type="button">📋 复制房间链接</button>';
+      var btn = document.getElementById("game-copy-btn");
+      if (btn) btn.addEventListener("click", copyRoomLink);
+    }
+  }
+
+  if (createBtn) createBtn.addEventListener("click", createRoom);
+  if (joinBtn) joinBtn.addEventListener("click", joinRoomByCode);
+  if (roomInput) roomInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") joinRoomByCode();
+  });
   if (nameInput) nameInput.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") join();
+    if (e.key === "Enter") createRoom();
   });
   if (startBtn) startBtn.addEventListener("click", function () {
     return send({
@@ -383,6 +468,7 @@ var __spreadProps = function __spreadProps(a, b) {
         started = data.started;
         lobbyEl.style.display = "none";
         roomEl.style.display = "";
+        updateRoomCode();
         renderPlayers();
         renderInfo();
         applyMode();
@@ -508,12 +594,12 @@ var __spreadProps = function __spreadProps(a, b) {
         break;
     }
   }
-  function connect() {
+  function connect(code) {
     var proto = location.protocol === "https:" ? "wss://" : "ws://";
-    ws = new WebSocket(proto + location.host + "/ws");
+    ws = new WebSocket(proto + location.host + "/ws?room=" + code);
     ws.onopen = function () {
-      lobbyStatus.textContent = "\u2705 \u5DF2\u8FDE\u63A5,\u8BF7\u8F93\u5165\u6635\u79F0\u52A0\u5165\u623F\u95F4";
-      log("\u5DF2\u8FDE\u63A5\u5230\u623F\u95F4\u670D\u52A1\u5668", "sys");
+      lobbyStatus.textContent = "✅ 已连接房间 " + code + ",正在加入…";
+      doJoin();
     };
     ws.onmessage = function (e) {
       try {
@@ -522,16 +608,32 @@ var __spreadProps = function __spreadProps(a, b) {
     };
     ws.onclose = function () {
       if (roomEl.style.display !== "none") {
-        alert("\u8FDE\u63A5\u5DF2\u65AD\u5F00,\u5373\u5C06\u5237\u65B0\u9875\u9762");
+        alert("连接已断开,即将刷新页面");
         setTimeout(function () {
           return location.reload();
         }, 1200);
       } else {
-        lobbyStatus.textContent = "\u26A0\uFE0F \u8FDE\u63A5\u65AD\u5F00,\u6B63\u5728\u91CD\u8FDE\u2026";
-        setTimeout(connect, 2e3);
+        retryCount++;
+        if (retryCount > 3) {
+          roomCode = null;
+          lobbyStatus.textContent = "⚠️ 连接失败,房间可能已解散,请重新创建或加入";
+          return;
+        }
+        lobbyStatus.textContent = "⚠️ 连接断开,正在重连…";
+        setTimeout(function () { return connect(roomCode); }, 2e3);
       }
     };
     ws.onerror = function () {};
   }
-  connect();
+
+  /* 自动加入:URL 带 ?room=XXXX */
+  (function () {
+    var m = (location.search || "").match(/[?&]room=([A-Za-z0-9]+)/);
+    if (m) {
+      var code = m[1].toUpperCase();
+      var ri = document.getElementById("game-room-input");
+      if (ri) ri.value = code;
+      setTimeout(joinRoomByCode, 400);
+    }
+  })();
 })();

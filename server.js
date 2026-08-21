@@ -29,6 +29,7 @@ const crypto = require("crypto");
 const { handleUpgrade } = require("./ws-game"); // 你画我猜 WebSocket 服务
 const { handleUpgrade: handleWerewolfUpgrade } = require("./ws-werewolf"); // 狼人杀 WebSocket 服务
 const { handleUpgrade: handleBuckshotUpgrade } = require("./ws-buckshot"); // 恶魔轮盘 WebSocket 服务
+const roomRouter = require("./ws-router"); // 多房间路由器(房间上限 + 1小时自动解散)
 
 const ROOT = __dirname;
 const PORT = process.env.PORT || 8080; // 云平台会注入 PORT 环境变量,本地默认 8080
@@ -790,6 +791,20 @@ const server = http.createServer((req, res) => {
   if (url === "/api/netease/login") { handleNeteaseLogin(req, res); return; }
   if (url === "/api/netease/logout") { handleNeteaseLogout(req, res); return; }
 
+  /* 房间管理 API(创建/查询房间,支持多房间) */
+  if (url === "/api/room") {
+    const qs = (req.url || "").split("?")[1] || "";
+    const params = {};
+    qs.split("&").forEach((kv) => {
+      const idx = kv.indexOf("=");
+      const k = idx >= 0 ? decodeURIComponent(kv.slice(0, idx)) : kv;
+      const v = idx >= 0 ? decodeURIComponent(kv.slice(idx + 1)) : "";
+      if (k) params[k] = v;
+    });
+    roomRouter.handleRoomApi(req, res, params);
+    return;
+  }
+
   /* API 优先处理 */
   if (url.startsWith("/api/")) {
     handleApi(req, res, url);
@@ -834,15 +849,16 @@ const server = http.createServer((req, res) => {
   });
 });
 
-/* WebSocket 升级:按路径分发
+/* WebSocket 升级:经多房间路由器按 ?room=CODE 分发
    /ws            → 你画我猜
    /ws-werewolf   → 狼人杀
    /ws-buckshot   → 恶魔轮盘 */
 server.on("upgrade", (req, socket) => {
   const wsPath = (req.url || "").split("?")[0];
-  if (wsPath === "/ws-werewolf") handleWerewolfUpgrade(req, socket);
-  else if (wsPath === "/ws-buckshot") handleBuckshotUpgrade(req, socket);
-  else handleUpgrade(req, socket);
+  if (wsPath === "/ws-werewolf") roomRouter.handleUpgrade(req, socket, "ws-werewolf");
+  else if (wsPath === "/ws-buckshot") roomRouter.handleUpgrade(req, socket, "ws-buckshot");
+  else if (wsPath === "/ws") roomRouter.handleUpgrade(req, socket, "ws");
+  else socket.destroy();
 });
 
 server.listen(PORT, () => {

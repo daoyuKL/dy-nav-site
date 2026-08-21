@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>狼人杀 · DY导航站</title>
   <meta name="description" content="DY导航站狼人杀,6-12 人开局" />
-  <link rel="stylesheet" href="css/style.css?v=5" />
+  <link rel="stylesheet" href="css/style.css?v=6" />
 </head>
 <body>
 
@@ -66,11 +66,15 @@
     <div class="game-lobby" id="wl-lobby">
       <div class="game-lobby-box">
         <div class="game-lobby-icon">🐺</div>
-        <h3>加入狼人杀房间</h3>
-        <p class="game-lobby-tip">需要 6-12 人,满 6 人即可开始</p>
+        <h3>狼人杀 · 联机房间</h3>
+        <p class="game-lobby-tip">6-12 人开局,满 6 人开始 · 创建房间后把 4 位房间号发给朋友</p>
         <div class="game-lobby-row">
           <input class="game-lobby-input" id="wl-name" type="text" maxlength="12" placeholder="你的昵称(默认:玩家+编号)" autocomplete="off" />
-          <button class="game-lobby-btn" id="wl-join-btn" type="button">加入房间</button>
+          <button class="game-lobby-btn" id="wl-create-btn" type="button">🏠 创建房间</button>
+        </div>
+        <div class="game-lobby-row" style="margin-top:8px;">
+          <input class="game-lobby-input" id="wl-room-input" type="text" maxlength="4" placeholder="输入 4 位房间号加入" autocomplete="off" />
+          <button class="game-lobby-btn" id="wl-join-btn" type="button">🔑 加入房间</button>
         </div>
         <div class="game-lobby-status" id="wl-lobby-status"></div>
       </div>
@@ -78,6 +82,7 @@
 
     <!-- 游戏房间 -->
     <div class="game-room" id="wl-room" style="display:none;">
+      <div class="br-roomcode" id="wl-room-code" style="display:none;"></div>
       <div class="game-top">
         <div class="game-info" id="wl-info">等待玩家加入…</div>
         <div class="game-top-btns">
@@ -132,13 +137,13 @@
 
   <button class="back-top" id="back-top" title="回到顶部">↑</button>
 
-  <script src="js/compat.js?v=5"></script>
-  <script src="js/main.js?v=5"></script>
-  <script src="js/background.js?v=5"></script>
-  <script src="js/music.js?v=5"></script>
-  <script src="js/easter.js?v=5"></script>
-  <script src="js/notice.js?v=5"></script>
-  <script src="js/account.js?v=5"></script>
-  <script src="js/werewolf.js?v=5"></script>
+  <script src="js/compat.js?v=6"></script>
+  <script src="js/main.js?v=6"></script>
+  <script src="js/background.js?v=6"></script>
+  <script src="js/music.js?v=6"></script>
+  <script src="js/easter.js?v=6"></script>
+  <script src="js/notice.js?v=6"></script>
+  <script src="js/account.js?v=6"></script>
+  <script src="js/werewolf.js?v=6"></script>
 </body>
 </html>

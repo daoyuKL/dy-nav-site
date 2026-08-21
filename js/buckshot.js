@@ -35,6 +35,8 @@
   var turnId = null;
   var myTurn = false;
   var knifeArmed = false;
+  var roomCode = null;   // 当前房间号
+  var retryCount = 0;    // 重连次数(防止房间解散后无限重连)
 
   function $(id) { return document.getElementById(id); }
 
@@ -87,6 +89,7 @@
 
   function renderAll() {
     renderLobby();
+    renderRoomCode();
     renderPlayers();
     renderChamber();
     renderItems();
@@ -232,7 +235,7 @@
      操作
      ========================================================================== */
 
-  function join() {
+  function doJoin() {
     var input = $("br-name");
     var name = (input ? input.value : "") || "";
     name = name.trim();
@@ -245,6 +248,84 @@
       }
     }
     send({ t: "join", name: name, qq: qq });
+  }
+
+  /* —— 创建房间:向服务器申请房间号并连接 —— */
+  function createRoom() {
+    if (ws && ws.readyState === WebSocket.OPEN) return;
+    fetch("/api/room?game=ws-buckshot")
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok) {
+          setStatus("⚠️ " + (d && d.error ? d.error : "创建失败"));
+          return;
+        }
+        roomCode = d.code;
+        retryCount = 0;
+        setStatus("🏠 房间 " + roomCode + " 创建成功,正在连接…");
+        connect(roomCode);
+      })
+      .catch(function () { setStatus("⚠️ 创建失败,请确认服务端已更新"); });
+  }
+
+  /* —— 按房间号加入 —— */
+  function joinRoomByCode() {
+    var input = $("br-room-input");
+    if (!input) return;
+    var code = input.value.trim().toUpperCase();
+    if (code.length < 4) { setStatus("请输入 4 位房间号"); return; }
+    fetch("/api/room?game=ws-buckshot&code=" + encodeURIComponent(code))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok || !d.exists) {
+          setStatus("❌ 房间 " + code + " 不存在或已解散");
+          return;
+        }
+        roomCode = code;
+        retryCount = 0;
+        setStatus("🔑 正在加入房间 " + code + " …");
+        connect(code);
+      })
+      .catch(function () { setStatus("⚠️ 加入失败,请确认服务端已更新"); });
+  }
+
+  /* —— 复制房间链接 —— */
+  function copyRoomLink() {
+    var url = location.origin + location.pathname + "?room=" + roomCode;
+    var done = function () { alert("房间链接已复制,发给朋友即可加入:" + url); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, function () { fallbackCopy(url, done); });
+    } else {
+      fallbackCopy(url, done);
+    }
+  }
+
+  function fallbackCopy(text, done) {
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      done();
+    } catch (e) {
+      alert("请手动复制链接:" + text);
+    }
+  }
+
+  function renderRoomCode() {
+    var el = $("br-roomcode");
+    if (!el) return;
+    if (roomCode) {
+      el.style.display = "";
+      el.innerHTML = "🏠 房间号:<b>" + roomCode + "</b> " +
+        '<button class="br-copy" id="br-copy-btn" type="button">📋 复制房间链接</button>';
+      var btn = $("br-copy-btn");
+      if (btn) btn.addEventListener("click", copyRoomLink);
+    } else {
+      el.style.display = "none";
+    }
   }
 
   function startGame() {
@@ -401,11 +482,12 @@
      连接
      ========================================================================== */
 
-  function connect() {
+  function connect(code) {
     var proto = location.protocol === "https:" ? "wss://" : "ws://";
-    ws = new WebSocket(proto + location.host + "/ws-buckshot");
+    ws = new WebSocket(proto + location.host + "/ws-buckshot?room=" + code);
     ws.onopen = function () {
-      setStatus("✅ 已连接,请输入昵称加入房间");
+      setStatus("✅ 已连接房间 " + code + ",正在加入…");
+      doJoin();
     };
     ws.onmessage = function (e) {
       try { onMessage(JSON.parse(e.data)); } catch (err) { /* 忽略坏消息 */ }
@@ -416,8 +498,14 @@
         alert("连接已断开,即将刷新页面");
         setTimeout(function () { location.reload(); }, 1200);
       } else {
+        retryCount++;
+        if (retryCount > 3) {
+          roomCode = null;
+          setStatus("⚠️ 连接失败,房间可能已解散,请重新创建或加入");
+          return;
+        }
         setStatus("⚠️ 连接断开,正在重连…");
-        setTimeout(connect, 2000);
+        setTimeout(function () { connect(roomCode); }, 2000);
       }
     };
     ws.onerror = function () { /* onclose 处理 */ };
@@ -428,10 +516,16 @@
      ========================================================================== */
 
   var joinBtn = $("br-join-btn");
-  if (joinBtn) joinBtn.addEventListener("click", join);
+  if (joinBtn) joinBtn.addEventListener("click", joinRoomByCode);
+  var createBtn = $("br-create-btn");
+  if (createBtn) createBtn.addEventListener("click", createRoom);
   var nameInput = $("br-name");
   if (nameInput) {
-    nameInput.addEventListener("keydown", function (e) { if (e.key === "Enter") join(); });
+    nameInput.addEventListener("keydown", function (e) { if (e.key === "Enter") createRoom(); });
+  }
+  var roomInput = $("br-room-input");
+  if (roomInput) {
+    roomInput.addEventListener("keydown", function (e) { if (e.key === "Enter") joinRoomByCode(); });
   }
   var startBtn = $("br-start-btn");
   if (startBtn) startBtn.addEventListener("click", startGame);
@@ -457,5 +551,14 @@
     });
   }
 
-  connect();
+  /* 自动加入:URL 带 ?room=XXXX */
+  (function () {
+    var m = (location.search || "").match(/[?&]room=([A-Za-z0-9]+)/);
+    if (m) {
+      var code = m[1].toUpperCase();
+      var ri = $("br-room-input");
+      if (ri) ri.value = code;
+      setTimeout(joinRoomByCode, 400);
+    }
+  })();
 })();

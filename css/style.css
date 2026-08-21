@@ -3338,3 +3338,37 @@ img { max-width: 100%; display: block; }
   .br-item { font-size: 0.82rem; padding: 10px 12px; }
   .br-log { height: 130px; }
 }
+
+
+/* —— 房间号显示条(所有联机游戏共用) —— */
+.br-roomcode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.br-roomcode b {
+  font-size: 1.05rem;
+  letter-spacing: 2px;
+}
+
+.br-copy {
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}

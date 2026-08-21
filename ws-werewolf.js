@@ -746,4 +746,15 @@ function handleUpgrade(req, socket) {
   new WSConn(socket);
 }
 
-module.exports = { handleUpgrade };
+/* —— 房间解散(超时自动解散):通知所有玩家并断开连接 —— */
+function disband(reason) {
+  room.players.forEach((p) => {
+    try { p.conn.send({ t: "system", text: reason || "房间已解散" }); } catch (e) { /* 忽略 */ }
+  });
+  setTimeout(() => {
+    room.players.forEach((p) => { try { p.conn.socket.destroy(); } catch (e) { /* 忽略 */ } });
+    room.players = [];
+  }, 900);
+}
+
+module.exports = { handleUpgrade, disband, count: () => room.players.length };
