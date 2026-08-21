@@ -853,11 +853,13 @@ const server = http.createServer((req, res) => {
 /* WebSocket 升级:经多房间路由器按 ?room=CODE 分发
    /ws            → 你画我猜
    /ws-werewolf   → 狼人杀
-   /ws-buckshot   → 恶魔轮盘 */
+   /ws-buckshot   → 恶魔轮盘
+   /ws-music      → 一起听 */
 server.on("upgrade", (req, socket) => {
   const wsPath = (req.url || "").split("?")[0];
   if (wsPath === "/ws-werewolf") roomRouter.handleUpgrade(req, socket, "ws-werewolf");
   else if (wsPath === "/ws-buckshot") roomRouter.handleUpgrade(req, socket, "ws-buckshot");
+  else if (wsPath === "/ws-music") roomRouter.handleUpgrade(req, socket, "ws-music");
   else if (wsPath === "/ws") roomRouter.handleUpgrade(req, socket, "ws");
   else socket.destroy();
 });

@@ -24,6 +24,7 @@ const GAME_PATHS = {
   "ws":          { file: "./ws-game",       maxRooms: 30, name: "你画我猜" },
   "ws-werewolf": { file: "./ws-werewolf",   maxRooms: 20, name: "狼人杀" },
   "ws-buckshot": { file: "./ws-buckshot",   maxRooms: 40, name: "恶魔轮盘" },
+  "ws-music":    { file: "./ws-music",      maxRooms: 20, name: "一起听" },
 };
 
 const TOTAL_MAX_ROOMS = 100; // 全局房间上限

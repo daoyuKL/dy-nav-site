@@ -3406,3 +3406,87 @@ img { max-width: 100%; display: block; }
   font-size: 0.78rem;
   color: var(--text-muted);
 }
+
+
+/* ==========================================================================
+   一起听面板(在线同步听歌)
+   ========================================================================== */
+.lt-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 76px;
+  width: 320px;
+  height: 420px;
+  min-width: 260px;
+  min-height: 280px;
+  max-width: 92vw;
+  max-height: 80vh;
+  resize: both;           /* 可拖拽缩放 */
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+  z-index: 9990;
+  display: flex;
+  flex-direction: column;
+}
+
+.lt-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+  border-radius: 14px 14px 0 0;
+  flex-shrink: 0;
+}
+
+.lt-title { font-weight: 800; font-size: 0.92rem; }
+.lt-code { font-size: 0.75rem; background: rgba(255, 255, 255, 0.2); padding: 2px 8px; border-radius: 999px; letter-spacing: 1px; }
+.lt-head-btns { margin-left: auto; display: flex; gap: 4px; }
+.lt-hbtn { width: 24px; height: 24px; border: none; border-radius: 6px; background: rgba(255, 255, 255, 0.2); color: #fff; cursor: pointer; font-size: 0.85rem; }
+.lt-hbtn:hover { background: rgba(255, 255, 255, 0.35); }
+.lt-body { flex: 1; overflow-y: auto; padding: 12px; }
+.lt-tip { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; }
+.lt-big-btn { width: 100%; padding: 12px; font-size: 0.95rem; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--primary), var(--accent)); border: none; border-radius: 10px; cursor: pointer; }
+.lt-join-row { display: flex; gap: 8px; margin-top: 10px; }
+.lt-input { flex: 1; min-width: 0; padding: 9px 12px; font-size: 0.88rem; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; outline: none; }
+.lt-input:focus { border-color: var(--primary); }
+.lt-btn { padding: 9px 14px; font-size: 0.85rem; font-weight: 700; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.lt-btn:hover { border-color: var(--primary); color: var(--primary); }
+.lt-status { font-size: 0.78rem; color: var(--text-muted); margin: 6px 0; }
+.lt-members { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.lt-member { font-size: 0.75rem; padding: 3px 10px; background: var(--primary-soft); color: var(--primary); border-radius: 999px; }
+.lt-member.me { background: var(--bg); border: 1px solid var(--primary); }
+.lt-now { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+.lt-now-label { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; }
+.lt-now-song { font-size: 0.9rem; font-weight: 700; word-break: break-all; }
+.lt-now-song span { font-size: 0.75rem; color: var(--text-muted); font-weight: 400; margin-left: 6px; }
+.lt-now-song em { display: block; font-style: normal; font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+.lt-now-empty { font-size: 0.82rem; color: var(--text-muted); }
+.lt-queue-title { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+.lt-queue { display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow-y: auto; margin-bottom: 10px; }
+.lt-qitem { display: flex; gap: 8px; align-items: center; font-size: 0.82rem; padding: 5px 8px; background: var(--bg); border-radius: 8px; }
+.lt-qidx { color: var(--text-muted); font-size: 0.72rem; }
+.lt-qname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lt-qby { font-size: 0.7rem; color: var(--text-muted); }
+.lt-rec { display: flex; gap: 8px; margin-bottom: 8px; }
+.lt-rec-results { max-height: 120px; overflow-y: auto; margin-bottom: 8px; }
+.lt-rec-item { font-size: 0.82rem; padding: 6px 10px; background: var(--bg); border-radius: 8px; cursor: pointer; display: flex; gap: 8px; margin-bottom: 4px; }
+.lt-rec-item b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lt-rec-item span { color: var(--text-muted); font-size: 0.72rem; }
+.lt-rec-item:hover { border-color: var(--primary); }
+.lt-dj { display: flex; gap: 8px; margin-bottom: 10px; }
+.lt-dj .lt-btn { flex: 1; text-align: center; }
+.lt-leave { text-align: center; margin-top: 6px; }
+.lt-leave-btn { color: var(--danger); }
+.lt-toast { position: absolute; left: 10px; right: 10px; bottom: 10px; background: rgba(15, 17, 23, 0.92); color: #fff; font-size: 0.78rem; padding: 8px 12px; border-radius: 8px; z-index: 5; }
+
+/* 🎧 一起听按钮激活态 */
+.mp-btn.active { color: var(--primary); background: var(--primary-soft); }
+
+@media (max-width: 640px) {
+  .lt-panel { width: calc(100vw - 24px); right: 12px; bottom: 66px; max-width: none; resize: none; }
+}

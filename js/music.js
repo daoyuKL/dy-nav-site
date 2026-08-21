@@ -31,6 +31,7 @@ var __spreadValues = function __spreadValues(a, b) {
   }
   var audio = new Audio();
   audio.preload = "none";
+  var roomMode = false; // 一起听房间模式:播放由房间驱动,不走个人记忆/队列
   var track = null;
   try {
     var saved = JSON.parse(localStorage.getItem("mp-song") || "null");
@@ -57,7 +58,7 @@ var __spreadValues = function __spreadValues(a, b) {
   }
   var player = document.createElement("div");
   player.className = "music-player";
-  player.innerHTML = "\n    <div class=\"mp-disc\" id=\"mp-disc\">\uD83C\uDFB5</div>\n    <div class=\"mp-info\">\n      <div class=\"mp-name\" id=\"mp-name\">\u52A0\u8F7D\u4E2D\u2026</div>\n      <div class=\"mp-artist\" id=\"mp-artist\"></div>\n    </div>\n    <button class=\"mp-btn\" id=\"mp-search-btn\" title=\"\u641C\u7D22/\u6B4C\u5355/\u767B\u5F55\">\uD83D\uDD0D</button>\n    <button class=\"mp-btn\" id=\"mp-next\" title=\"\u4E0B\u4E00\u9996(\u6B4C\u5355\u6A21\u5F0F)\" style=\"display:none;\">\u23ED</button>\n    <button class=\"mp-btn mp-play\" id=\"mp-play\" title=\"\u64AD\u653E/\u6682\u505C\">\u25B6</button>\n    <div class=\"mp-search-box\" id=\"mp-search-box\" style=\"display:none;\">\n      <div class=\"mp-search-tabs\">\n        <button type=\"button\" class=\"mp-tab-btn active\" data-tab=\"song\">\uD83C\uDFB5 \u6B4C\u66F2</button>\n        <button type=\"button\" class=\"mp-tab-btn\" data-tab=\"playlist\">\uD83D\uDCDA \u6B4C\u5355</button>\n        <button type=\"button\" class=\"mp-tab-btn\" data-tab=\"mine\">\uD83D\uDC64 \u6211\u7684</button>\n      </div>\n\n      <!-- \u6B4C\u66F2\u641C\u7D22 -->\n      <div class=\"mp-tab-panel\" data-panel=\"song\">\n        <div class=\"mp-search-row\">\n          <input class=\"mp-search-input\" type=\"text\" placeholder=\"\u641C\u7D22\u7F51\u6613\u4E91\u6B4C\u66F2\u2026\" maxlength=\"50\" />\n          <button class=\"mp-search-go\" type=\"button\">\u641C\u7D22</button>\n        </div>\n        <div class=\"mp-search-status\"></div>\n        <div class=\"mp-search-list\"></div>\n      </div>\n\n      <!-- \u6B4C\u5355\u641C\u7D22 / \u6B4C\u5355\u8BE6\u60C5 -->\n      <div class=\"mp-tab-panel\" data-panel=\"playlist\" style=\"display:none;\">\n        <div class=\"mp-search-row\">\n          <input class=\"mp-search-input\" type=\"text\" placeholder=\"\u641C\u7D22\u7F51\u6613\u4E91\u6B4C\u5355\u2026\" maxlength=\"50\" />\n          <button class=\"mp-search-go\" type=\"button\">\u641C\u7D22</button>\n        </div>\n        <div class=\"mp-pl-tools\">\n          <button class=\"mp-search-go\" type=\"button\" id=\"mp-mine-btn\">\uD83D\uDC64 \u6211\u7684\u6B4C\u5355</button>\n        </div>\n        <div class=\"mp-search-status\"></div>\n        <div class=\"mp-search-list\"></div>\n        <!-- \u6B4C\u5355\u8BE6\u60C5\u89C6\u56FE -->\n        <div class=\"mp-pl-detail\" style=\"display:none;\">\n          <div class=\"mp-pl-head\">\n            <button class=\"mp-search-go\" type=\"button\" id=\"mp-pl-back\">\u2190 \u8FD4\u56DE</button>\n            <span class=\"mp-pl-title\" id=\"mp-pl-title\"></span>\n          </div>\n          <button class=\"mp-pl-shuffle\" type=\"button\" id=\"mp-pl-shuffle\">\uD83C\uDFB2 \u968F\u673A\u64AD\u653E\u5168\u90E8</button>\n          <div class=\"mp-pl-songs\" id=\"mp-pl-songs\"></div>\n        </div>\n      </div>\n\n      <!-- \u6211\u7684(\u767B\u5F55 / \u6211\u7684\u6B4C\u5355) -->\n      <div class=\"mp-tab-panel\" data-panel=\"mine\" style=\"display:none;\">\n        <div class=\"mp-mine-login\" id=\"mp-mine-login\">\n          <div class=\"mp-mine-tip\">\u7C98\u8D34\u7F51\u6613\u4E91\u7F51\u9875\u7248\u7684 <b>MUSIC_U</b> \u5373\u53EF\u767B\u5F55,\u67E5\u770B\u81EA\u5DF1\u7684\u6B4C\u5355\u3002</div>\n          <details class=\"mp-mine-help\">\n            <summary>\uD83D\uDCD6 \u600E\u4E48\u83B7\u53D6 MUSIC_U?(\u70B9\u51FB\u5C55\u5F00)</summary>\n            <div class=\"mp-mine-help-body\">\n              <div class=\"mh-step\"><b>1.</b> \u7535\u8111\u6D4F\u89C8\u5668\u6253\u5F00 <a href=\"https://music.163.com\" target=\"_blank\" rel=\"noopener\">music.163.com</a> \u5E76\u767B\u5F55\u4F60\u7684\u7F51\u6613\u4E91\u8D26\u53F7</div>\n              <div class=\"mh-step\"><b>2.</b> \u6309\u952E\u76D8 <b>F12</b> \u6253\u5F00\u5F00\u53D1\u8005\u5DE5\u5177</div>\n              <div class=\"mh-step\"><b>3.</b> \u9876\u90E8\u9009\u300C<b>\u5E94\u7528 / Application</b>\u300D,\u5DE6\u4FA7\u9009\u300C<b>Cookies</b>\u300D</div>\n              <div class=\"mh-step\"><b>4.</b> \u5C55\u5F00 <b>https://music.163.com</b> \u2192 \u627E\u5230 <b>MUSIC_U</b> \u90A3\u4E00\u884C</div>\n              <div class=\"mh-step\"><b>5.</b> \u53CC\u51FB <b>Value</b> \u5168\u9009\u590D\u5236\u6574\u4E32\u5185\u5BB9</div>\n              <div class=\"mh-step\"><b>6.</b> \u7C98\u8D34\u5230\u4E0B\u9762\u8F93\u5165\u6846 \u2192 \u70B9\u300C\u767B\u5F55\u300D</div>\n              <div class=\"mh-warn\">\u26A0\uFE0F MUSIC_U \u662F\u767B\u5F55\u51ED\u8BC1,<b>\u4E0D\u8981\u53D1\u7ED9\u964C\u751F\u4EBA</b>;\u5931\u6548\u540E\u91CD\u65B0\u590D\u5236\u4E00\u6B21\u5373\u53EF\u3002</div>\n            </div>\n          </details>\n          <textarea class=\"mp-mine-input\" id=\"mp-mine-musicu\" rows=\"2\" placeholder=\"\u7C98\u8D34 MUSIC_U \u503C\u2026\"></textarea>\n          <button class=\"mp-search-go\" type=\"button\" id=\"mp-mine-login-btn\">\u767B\u5F55</button>\n        </div>\n        <div class=\"mp-mine-user\" id=\"mp-mine-user\" style=\"display:none;\">\n          <div class=\"mp-mine-tip\" id=\"mp-mine-nick\"></div>\n          <button class=\"mp-search-go\" type=\"button\" id=\"mp-mine-logout-btn\">\u9000\u51FA\u767B\u5F55</button>\n        </div>\n        <div class=\"mp-search-status\" id=\"mp-mine-status\"></div>\n        <div class=\"mp-search-list\" id=\"mp-mine-list\"></div>\n      </div>\n    </div>";
+  player.innerHTML = "\n    <div class=\"mp-disc\" id=\"mp-disc\">\uD83C\uDFB5</div>\n    <div class=\"mp-info\">\n      <div class=\"mp-name\" id=\"mp-name\">\u52A0\u8F7D\u4E2D\u2026</div>\n      <div class=\"mp-artist\" id=\"mp-artist\"></div>\n    </div>\n    <button class=\"mp-btn\" id=\"mp-search-btn\" title=\"\u641C\u7D22/\u6B4C\u5355/\u767B\u5F55\">\uD83D\uDD0D</button>\n    <button class=\"mp-btn\" id=\"mp-listen\" title=\"\u4E00\u8D77\u542C(\u5728\u7EBF\u540C\u6B65\u64AD\u653E)\">\uD83C\uDFA7</button>\n    <button class=\"mp-btn\" id=\"mp-next\" title=\"\u4E0B\u4E00\u9996(\u6B4C\u5355\u6A21\u5F0F)\" style=\"display:none;\">\u23ED</button>\n    <button class=\"mp-btn mp-play\" id=\"mp-play\" title=\"\u64AD\u653E/\u6682\u505C\">\u25B6</button>\n    <div class=\"mp-search-box\" id=\"mp-search-box\" style=\"display:none;\">\n      <div class=\"mp-search-tabs\">\n        <button type=\"button\" class=\"mp-tab-btn active\" data-tab=\"song\">\uD83C\uDFB5 \u6B4C\u66F2</button>\n        <button type=\"button\" class=\"mp-tab-btn\" data-tab=\"playlist\">\uD83D\uDCDA \u6B4C\u5355</button>\n        <button type=\"button\" class=\"mp-tab-btn\" data-tab=\"mine\">\uD83D\uDC64 \u6211\u7684</button>\n      </div>\n\n      <!-- \u6B4C\u66F2\u641C\u7D22 -->\n      <div class=\"mp-tab-panel\" data-panel=\"song\">\n        <div class=\"mp-search-row\">\n          <input class=\"mp-search-input\" type=\"text\" placeholder=\"\u641C\u7D22\u7F51\u6613\u4E91\u6B4C\u66F2\u2026\" maxlength=\"50\" />\n          <button class=\"mp-search-go\" type=\"button\">\u641C\u7D22</button>\n        </div>\n        <div class=\"mp-search-status\"></div>\n        <div class=\"mp-search-list\"></div>\n      </div>\n\n      <!-- \u6B4C\u5355\u641C\u7D22 / \u6B4C\u5355\u8BE6\u60C5 -->\n      <div class=\"mp-tab-panel\" data-panel=\"playlist\" style=\"display:none;\">\n        <div class=\"mp-search-row\">\n          <input class=\"mp-search-input\" type=\"text\" placeholder=\"\u641C\u7D22\u7F51\u6613\u4E91\u6B4C\u5355\u2026\" maxlength=\"50\" />\n          <button class=\"mp-search-go\" type=\"button\">\u641C\u7D22</button>\n        </div>\n        <div class=\"mp-pl-tools\">\n          <button class=\"mp-search-go\" type=\"button\" id=\"mp-mine-btn\">\uD83D\uDC64 \u6211\u7684\u6B4C\u5355</button>\n        </div>\n        <div class=\"mp-search-status\"></div>\n        <div class=\"mp-search-list\"></div>\n        <!-- \u6B4C\u5355\u8BE6\u60C5\u89C6\u56FE -->\n        <div class=\"mp-pl-detail\" style=\"display:none;\">\n          <div class=\"mp-pl-head\">\n            <button class=\"mp-search-go\" type=\"button\" id=\"mp-pl-back\">\u2190 \u8FD4\u56DE</button>\n            <span class=\"mp-pl-title\" id=\"mp-pl-title\"></span>\n          </div>\n          <button class=\"mp-pl-shuffle\" type=\"button\" id=\"mp-pl-shuffle\">\uD83C\uDFB2 \u968F\u673A\u64AD\u653E\u5168\u90E8</button>\n          <div class=\"mp-pl-songs\" id=\"mp-pl-songs\"></div>\n        </div>\n      </div>\n\n      <!-- \u6211\u7684(\u767B\u5F55 / \u6211\u7684\u6B4C\u5355) -->\n      <div class=\"mp-tab-panel\" data-panel=\"mine\" style=\"display:none;\">\n        <div class=\"mp-mine-login\" id=\"mp-mine-login\">\n          <div class=\"mp-mine-tip\">\u7C98\u8D34\u7F51\u6613\u4E91\u7F51\u9875\u7248\u7684 <b>MUSIC_U</b> \u5373\u53EF\u767B\u5F55,\u67E5\u770B\u81EA\u5DF1\u7684\u6B4C\u5355\u3002</div>\n          <details class=\"mp-mine-help\">\n            <summary>\uD83D\uDCD6 \u600E\u4E48\u83B7\u53D6 MUSIC_U?(\u70B9\u51FB\u5C55\u5F00)</summary>\n            <div class=\"mp-mine-help-body\">\n              <div class=\"mh-step\"><b>1.</b> \u7535\u8111\u6D4F\u89C8\u5668\u6253\u5F00 <a href=\"https://music.163.com\" target=\"_blank\" rel=\"noopener\">music.163.com</a> \u5E76\u767B\u5F55\u4F60\u7684\u7F51\u6613\u4E91\u8D26\u53F7</div>\n              <div class=\"mh-step\"><b>2.</b> \u6309\u952E\u76D8 <b>F12</b> \u6253\u5F00\u5F00\u53D1\u8005\u5DE5\u5177</div>\n              <div class=\"mh-step\"><b>3.</b> \u9876\u90E8\u9009\u300C<b>\u5E94\u7528 / Application</b>\u300D,\u5DE6\u4FA7\u9009\u300C<b>Cookies</b>\u300D</div>\n              <div class=\"mh-step\"><b>4.</b> \u5C55\u5F00 <b>https://music.163.com</b> \u2192 \u627E\u5230 <b>MUSIC_U</b> \u90A3\u4E00\u884C</div>\n              <div class=\"mh-step\"><b>5.</b> \u53CC\u51FB <b>Value</b> \u5168\u9009\u590D\u5236\u6574\u4E32\u5185\u5BB9</div>\n              <div class=\"mh-step\"><b>6.</b> \u7C98\u8D34\u5230\u4E0B\u9762\u8F93\u5165\u6846 \u2192 \u70B9\u300C\u767B\u5F55\u300D</div>\n              <div class=\"mh-warn\">\u26A0\uFE0F MUSIC_U \u662F\u767B\u5F55\u51ED\u8BC1,<b>\u4E0D\u8981\u53D1\u7ED9\u964C\u751F\u4EBA</b>;\u5931\u6548\u540E\u91CD\u65B0\u590D\u5236\u4E00\u6B21\u5373\u53EF\u3002</div>\n            </div>\n          </details>\n          <textarea class=\"mp-mine-input\" id=\"mp-mine-musicu\" rows=\"2\" placeholder=\"\u7C98\u8D34 MUSIC_U \u503C\u2026\"></textarea>\n          <button class=\"mp-search-go\" type=\"button\" id=\"mp-mine-login-btn\">\u767B\u5F55</button>\n        </div>\n        <div class=\"mp-mine-user\" id=\"mp-mine-user\" style=\"display:none;\">\n          <div class=\"mp-mine-tip\" id=\"mp-mine-nick\"></div>\n          <button class=\"mp-search-go\" type=\"button\" id=\"mp-mine-logout-btn\">\u9000\u51FA\u767B\u5F55</button>\n        </div>\n        <div class=\"mp-search-status\" id=\"mp-mine-status\"></div>\n        <div class=\"mp-search-list\" id=\"mp-mine-list\"></div>\n      </div>\n    </div>";
   document.body.appendChild(player);
   var disc = player.querySelector("#mp-disc");
   var nameEl = player.querySelector("#mp-name");
@@ -65,6 +66,7 @@ var __spreadValues = function __spreadValues(a, b) {
   var playBtn = player.querySelector("#mp-play");
   var nextBtn = player.querySelector("#mp-next");
   var searchBtn = player.querySelector("#mp-search-btn");
+  var listenBtn = player.querySelector("#mp-listen");
   var searchBox = player.querySelector("#mp-search-box");
   var openBtn = document.createElement("button");
   openBtn.className = "music-open";
@@ -149,6 +151,7 @@ var __spreadValues = function __spreadValues(a, b) {
     updateUI();
   }
   audio.addEventListener("ended", function () {
+    if (roomMode) return; // 一起听模式下由房间推进,不走个人播放队列
     if (queue) playQueueAt(qPos + 1);
   });
   function fetchJSON(url) {
@@ -583,4 +586,64 @@ var __spreadValues = function __spreadValues(a, b) {
   ["click", "touchstart", "keydown"].forEach(function (ev) {
     return document.addEventListener(ev, startOnFirstInteract);
   });
+
+  /* ==========================================================================
+     一起听 API(供 listen-together.js 调用)
+     ========================================================================== */
+  window.MusicAPI = {
+    srcOf: srcOf,
+    /* 播放指定歌曲(一起听房间用:不写个人记忆,不循环) */
+    playSong: function (id, name, artist) {
+      roomMode = true;
+      queue = null;
+      audio.loop = false;
+      track = {
+        id: +id,
+        name: String(name || "未知歌曲"),
+        artist: String(artist || "")
+      };
+      audio.src = srcOf(track.id);
+      updateUI();
+      var pr = audio.play();
+      if (pr && pr.catch) pr.catch(function () {});
+    },
+    play: function () {
+      var pr = audio.play();
+      if (pr && pr.catch) pr.catch(function () {});
+      updateUI();
+    },
+    pause: function () {
+      audio.pause();
+      updateUI();
+    },
+    seek: function (t) {
+      try { audio.currentTime = Number(t) || 0; } catch (e) { /* 忽略 */ }
+    },
+    getPos: function () {
+      return audio.currentTime || 0;
+    },
+    isPaused: function () {
+      return audio.paused;
+    },
+    onEnded: function (cb) {
+      audio.addEventListener("ended", cb);
+    },
+    /* 房间模式开关:禁用个人播放器按钮,高亮 🎧 */
+    setRoomMode: function (on) {
+      roomMode = !!on;
+      if (playBtn) playBtn.disabled = !!on;
+      if (nextBtn) nextBtn.style.display = on ? "none" : (queue ? "" : "none");
+      if (searchBtn) searchBtn.style.display = on ? "none" : "";
+      if (listenBtn) listenBtn.classList.toggle("active", !!on);
+    },
+    /* 退出房间:恢复个人模式 */
+    stop: function () {
+      roomMode = false;
+      queue = null;
+      audio.pause();
+      audio.removeAttribute("src");
+      try { audio.load(); } catch (e) { /* 忽略 */ }
+      updateUI();
+    }
+  };
 })();
