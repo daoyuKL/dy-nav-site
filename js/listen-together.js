@@ -60,12 +60,12 @@
         "</span>" +
       "</div>" +
       '<div class="lt-body" id="lt-body">' +
-        /* —— 未加入视图 —— */
+        /* —— 未加入视图:系统房间列表 —— */
         '<div class="lt-lobby" id="lt-lobby">' +
-          '<p class="lt-tip">和大家同步听同一首歌,每人轮流推荐。</p>' +
-          '<button type="button" class="lt-big-btn" id="lt-create">🏠 创建房间</button>' +
+          '<p class="lt-tip">系统常驻 5 个房间,选择一间加入,和大家同步听歌。</p>' +
+          '<div class="lt-roomlist" id="lt-roomlist"><div class="lt-status">加载房间中…</div></div>' +
           '<div class="lt-join-row">' +
-            '<input class="lt-input" id="lt-room-input" type="text" maxlength="4" placeholder="4 位房间号" autocomplete="off" />' +
+            '<input class="lt-input" id="lt-room-input" type="text" maxlength="4" placeholder="或输入房间号" autocomplete="off" />' +
             '<button type="button" class="lt-btn" id="lt-join">🔑 加入</button>' +
           "</div>" +
           '<div class="lt-status" id="lt-status"></div>' +
@@ -98,7 +98,6 @@
       if (body) body.style.display = minimized ? "none" : "";
       if (min) min.textContent = minimized ? "＋" : "—";
     });
-    $("lt-create").addEventListener("click", createRoom);
     $("lt-join").addEventListener("click", joinRoom);
     var ri = $("lt-room-input");
     if (ri) ri.addEventListener("keydown", function (e) { if (e.key === "Enter") joinRoom(); });
@@ -117,6 +116,12 @@
     panel.style.display = panelOpen ? "" : "none";
     if (panelOpen) {
       if (!minimized) $("lt-body").style.display = "";
+      if (!joined) {
+        loadRoomList();
+        if (!listTimer) listTimer = setInterval(loadRoomList, 5000);
+      }
+    } else {
+      if (listTimer) { clearInterval(listTimer); listTimer = null; }
     }
   }
 
@@ -137,17 +142,58 @@
     return "";
   }
 
-  function createRoom() {
-    if (ws && ws.readyState === WebSocket.OPEN) return;
-    fetch("/api/room?game=ws-music")
+  var listTimer = null; // 房间列表自动刷新
+
+  function loadRoomList() {
+    if (!panelOpen || joined) return;
+    fetch("/api/room?game=ws-music&list=1")
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if (!d || !d.ok) { status("⚠️ " + (d && d.error ? d.error : "创建失败")); return; }
-        roomCode = d.code;
-        status("🏠 房间 " + roomCode + " 创建成功,正在连接…");
-        connect(roomCode);
+        var box = $("lt-roomlist");
+        if (!box) return;
+        if (!d || !d.ok) {
+          box.innerHTML = '<div class="lt-status">⚠️ 加载失败,请确认服务端已更新</div>';
+          return;
+        }
+        var rooms = d.rooms || [];
+        if (!rooms.length) {
+          box.innerHTML = '<div class="lt-status">暂无房间</div>';
+          return;
+        }
+        box.innerHTML = rooms.map(function (r) {
+          var now = r.current ? "🎵 " + esc(r.current) : "📭 空闲";
+          return '<div class="lt-room-item" data-code="' + r.code + '">' +
+            '<span class="lt-room-code">' + r.code + "</span>" +
+            '<span class="lt-room-now">' + now + "</span>" +
+            '<span class="lt-room-num">' + r.players + " 人</span>" +
+            "</div>";
+        }).join("");
+        var items = box.querySelectorAll(".lt-room-item");
+        for (var i = 0; i < items.length; i++) {
+          (function (it) {
+            it.addEventListener("click", function () {
+              joinCode(it.getAttribute("data-code"));
+            });
+          })(items[i]);
+        }
       })
-      .catch(function () { status("⚠️ 创建失败,请确认服务端已更新"); });
+      .catch(function () {
+        var box = $("lt-roomlist");
+        if (box) box.innerHTML = '<div class="lt-status">⚠️ 加载失败,请检查网络</div>';
+      });
+  }
+
+  function joinCode(code) {
+    if (!code) return;
+    fetch("/api/room?game=ws-music&code=" + encodeURIComponent(code))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok || !d.exists) { status("❌ 房间 " + code + " 不存在"); return; }
+        roomCode = code;
+        status("🔑 正在加入房间 " + code + " …");
+        connect(code);
+      })
+      .catch(function () { status("⚠️ 加入失败,请确认服务端已更新"); });
   }
 
   function joinRoom() {
@@ -155,15 +201,7 @@
     if (!input) return;
     var code = input.value.trim().toUpperCase();
     if (code.length < 4) { status("请输入 4 位房间号"); return; }
-    fetch("/api/room?game=ws-music&code=" + encodeURIComponent(code))
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (!d || !d.ok || !d.exists) { status("❌ 房间 " + code + " 不存在或已解散"); return; }
-        roomCode = code;
-        status("🔑 正在加入房间 " + code + " …");
-        connect(code);
-      })
-      .catch(function () { status("⚠️ 加入失败,请确认服务端已更新"); });
+    joinCode(code);
   }
 
   function connect(code) {
@@ -203,6 +241,12 @@
     playing = false;
     renderLobby();
     status("已离开房间");
+    /* 回到大厅:恢复房间列表刷新 */
+    if (listTimer) { clearInterval(listTimer); listTimer = null; }
+    if (panelOpen) {
+      loadRoomList();
+      listTimer = setInterval(loadRoomList, 5000);
+    }
   }
 
   /* ==========================================================================

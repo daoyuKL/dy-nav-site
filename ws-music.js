@@ -322,4 +322,13 @@ function disband(reason) {
   }, 900);
 }
 
-module.exports = { handleUpgrade, disband, count: () => room.players.length };
+/* —— 房间信息(房间列表展示用) —— */
+function info() {
+  return {
+    players: room.players.length,
+    current: room.current ? room.current.name : null,
+    queue: room.queue.length,
+  };
+}
+
+module.exports = { handleUpgrade, disband, count: () => room.players.length, info };

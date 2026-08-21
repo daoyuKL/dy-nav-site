@@ -3490,3 +3490,54 @@ img { max-width: 100%; display: block; }
 @media (max-width: 640px) {
   .lt-panel { width: calc(100vw - 24px); right: 12px; bottom: 66px; max-width: none; resize: none; }
 }
+
+
+/* —— 一起听房间列表(系统常驻房间) —— */
+.lt-roomlist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.lt-room-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.lt-room-item:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.lt-room-code {
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
+.lt-room-now {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lt-room-num {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}

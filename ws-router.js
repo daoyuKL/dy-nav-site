@@ -24,7 +24,7 @@ const GAME_PATHS = {
   "ws":          { file: "./ws-game",       maxRooms: 30, name: "你画我猜" },
   "ws-werewolf": { file: "./ws-werewolf",   maxRooms: 20, name: "狼人杀" },
   "ws-buckshot": { file: "./ws-buckshot",   maxRooms: 40, name: "恶魔轮盘" },
-  "ws-music":    { file: "./ws-music",      maxRooms: 20, name: "一起听" },
+  "ws-music":    { file: "./ws-music",      maxRooms: 5,  name: "一起听" },
 };
 
 const TOTAL_MAX_ROOMS = 100; // 全局房间上限
@@ -74,6 +74,38 @@ function handleRoomApi(req, res, params) {
     return;
   }
 
+  /* 房间列表:返回该游戏所有房间(含人数/当前播放),一起听面板用 */
+  if (params.list) {
+    const list = [];
+    instances.forEach((inst, k) => {
+      if (k.indexOf(game + ":") !== 0) return;
+      const info = { code: k.slice(game.length + 1), players: 0, current: null, queue: 0 };
+      try { info.players = inst.mod.count ? inst.mod.count() : 0; } catch (e) { /* 忽略 */ }
+      try {
+        if (inst.mod.info) {
+          const x = inst.mod.info();
+          if (x && typeof x === "object") {
+            if (typeof x.players === "number") info.players = x.players;
+            info.current = x.current || null;
+            info.queue = x.queue || 0;
+          }
+        }
+      } catch (e) { /* 忽略 */ }
+      list.push(info);
+    });
+    list.sort((a, b) => (a.code < b.code ? -1 : 1));
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ ok: true, rooms: list }));
+    return;
+  }
+
+  /* 一起听:房间由系统管理(固定 5 间),不允许用户创建 */
+  if (game === "ws-music") {
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ ok: false, error: "一起听房间由系统管理,请从房间列表直接加入" }));
+    return;
+  }
+
   /* 创建房间:上限检查 */
   let gameCount = 0;
   instances.forEach((v, k) => { if (k.indexOf(game + ":") === 0) gameCount++; });
@@ -120,10 +152,11 @@ function handleUpgrade(req, socket, game) {
   inst.mod.handleUpgrade(req, socket);
 }
 
-/* —— 定时清理:空房间立即回收;超 1 小时强制解散 —— */
+/* —— 定时清理:空房间立即回收;超 1 小时强制解散(系统常驻房间除外) —— */
 setInterval(() => {
   const now = Date.now();
   instances.forEach((inst, k) => {
+    if (inst.system) return; // 系统房间(一起听)永久存在,不清理
     let cnt = 0;
     try { cnt = inst.mod.count(); } catch (e) { /* 模块异常按空处理 */ }
     if (now - inst.createdAt > ROOM_TTL) {
@@ -136,5 +169,15 @@ setInterval(() => {
     }
   });
 }, SWEEP_MS);
+
+/* —— 一起听:系统常驻 5 个房间(0001-0005),无需用户创建,永久存在 —— */
+(function initMusicRooms() {
+  const game = "ws-music";
+  for (let i = 1; i <= 5; i++) {
+    const code = "000" + i;
+    instances.set(key(game, code), { mod: loadModule(game), createdAt: Date.now(), system: true });
+  }
+  console.log("[room] 一起听系统房间已就绪:0001-0005");
+})();
 
 module.exports = { handleRoomApi, handleUpgrade };
