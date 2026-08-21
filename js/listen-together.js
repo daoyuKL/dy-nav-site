@@ -19,6 +19,7 @@
   var djId = null;     // 当前 DJ(房主)
   var isDj = false;
   var joined = false;
+  var kicked = false;  // 被其他页面顶掉:停止自动重连,避免两页互抢死循环
   var players = [];
   var queue = [];
   var current = null;
@@ -219,6 +220,7 @@
       try { ws.onclose = null; ws.close(); } catch (e) { /* 忽略 */ }
       ws = null;
     }
+    kicked = false;
     var proto = location.protocol === "https:" ? "wss://" : "ws://";
     ws = new WebSocket(proto + location.host + "/ws-music?room=" + code);
     ws.onopen = function () {
@@ -231,13 +233,14 @@
       try { onMessage(JSON.parse(e.data)); } catch (err) { /* 忽略坏消息 */ }
     };
     ws.onclose = function () {
+      if (kicked) return; // 已被其他页面顶掉:不再抢房
       if (joined && !leaving) {
         /* 页面跳转/断线:不弹窗,稍后自动重连回房间 */
         joined = false;
         isDj = false;
         var rc = roomCode;
         setTimeout(function () {
-          if (!leaving && rc) joinCode(rc);
+          if (!leaving && !kicked && rc) joinCode(rc);
         }, 1200);
       } else if (!joined) {
         status("⚠️ 连接失败,房间可能已解散,请重新选择房间");
@@ -248,6 +251,7 @@
 
   function leaveRoom() {
     leaving = true;
+    kicked = false;
     joined = false;
     isDj = false;
     if (posTimer) { clearInterval(posTimer); posTimer = null; }
@@ -353,6 +357,18 @@
 
       case "system":
         toast(d.text);
+        break;
+
+      case "dup-kicked":
+        /* 被其他页面顶掉:本页停止抢房,不再自动重连 */
+        kicked = true;
+        joined = false;
+        isDj = false;
+        if (posTimer) { clearInterval(posTimer); posTimer = null; }
+        if (M() && M().stop) M().stop();
+        if (M() && M().setRoomMode) M().setRoomMode(false);
+        renderLobby();
+        status("⚠️ 你已在其他页面/标签页进入此房间,本页面已断开");
         break;
 
       case "full":

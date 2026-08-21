@@ -247,6 +247,8 @@ function doJoin(conn, data) {
     const dup = room.players.find((x) => x.cid && x.cid === cid);
     if (dup) {
       if (dup.id === room.djId) room.djId = p.id; // DJ 身份转移给新连接
+      /* 专门信号:让被顶掉的页面停止自动重连,避免两页互抢死循环 */
+      try { dup.conn.send({ t: "dup-kicked" }); } catch (e) { /* 忽略 */ }
       try { dup.conn.send({ t: "system", text: "检测到重复进入,旧连接已断开" }); } catch (e) { /* 忽略 */ }
       try { dup.conn.socket.destroy(); } catch (e) { /* 忽略 */ }
       room.players = room.players.filter((x) => x !== dup);
