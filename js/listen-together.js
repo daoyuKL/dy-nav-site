@@ -232,10 +232,15 @@
     };
     ws.onclose = function () {
       if (joined && !leaving) {
-        alert("连接已断开,即将刷新页面");
-        setTimeout(function () { location.reload(); }, 1200);
+        /* 页面跳转/断线:不弹窗,稍后自动重连回房间 */
+        joined = false;
+        isDj = false;
+        var rc = roomCode;
+        setTimeout(function () {
+          if (!leaving && rc) joinCode(rc);
+        }, 1200);
       } else if (!joined) {
-        status("⚠️ 连接失败,房间可能已解散,请重新创建或加入");
+        status("⚠️ 连接失败,房间可能已解散,请重新选择房间");
       }
     };
     ws.onerror = function () { /* onclose 处理 */ };
@@ -255,6 +260,8 @@
     queue = [];
     current = null;
     playing = false;
+    /* 退出房间后不再自动回来 */
+    try { localStorage.removeItem("lt-active-room"); } catch (e) { /* 忽略 */ }
     renderLobby();
     status("已离开房间");
     /* 回到大厅:恢复房间列表刷新 */
@@ -280,6 +287,9 @@
         queue = d.queue || [];
         current = d.current || null;
         playing = !!d.playing;
+        /* 记住当前房间:跳转页面后自动回来 */
+        try { localStorage.setItem("lt-active-room", roomCode || ""); } catch (e) { /* 忽略 */ }
+        buildPanel();
         renderRoom();
         $("lt-lobby").style.display = "none";
         $("lt-room").style.display = "";
@@ -288,6 +298,8 @@
         if (current) {
           M().playSong(current.id, current.name, current.artist);
           if (!playing) M().pause();
+          /* 中途进入/跳页回来:对齐播放位置 */
+          if (d.position > 0) M().seek(d.position);
         }
         break;
 
@@ -495,4 +507,18 @@
     setTimeout(bindBtn, 500);
   }
   bindBtn();
+
+  /* —— 自动回到上次的房间:跳转站内其他页面后不掉出一起听 —— */
+  (function autoRejoin() {
+    var saved = null;
+    try { saved = localStorage.getItem("lt-active-room"); } catch (e) { /* 忽略 */ }
+    if (!saved) return;
+    setTimeout(function () {
+      /* 打开面板,展示房间状态 */
+      panelOpen = true;
+      buildPanel();
+      panel.style.display = "";
+      joinCode(saved);
+    }, 600);
+  })();
 })();
