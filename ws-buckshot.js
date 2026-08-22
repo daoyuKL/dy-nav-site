@@ -245,7 +245,7 @@ function startRound() {
     maxHp: MAX_HP,
   });
   alive.forEach((p) => {
-    p.conn.send({ t: "my-items", items: p.items });
+    if (p.conn) p.conn.send({ t: "my-items", items: p.items });
   });
   system(`第 ${room.round} 回合!装填 ${info.total} 发:实弹 ${info.live} / 空包 ${info.blank},生命回满`);
   startTurn();

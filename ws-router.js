@@ -139,6 +139,7 @@ function handleUpgrade(req, socket, game) {
   const inst = code ? instances.get(key(game, code)) : null;
   if (!inst) {
     /* 房间不存在/已解散/被回收 */
+    console.log("[room] 拒绝连接 " + game + ":" + code + "(房间不存在)");
     try {
       socket.write(
         "HTTP/1.1 404 Not Found\r\n" +
@@ -149,7 +150,12 @@ function handleUpgrade(req, socket, game) {
     socket.destroy();
     return;
   }
-  inst.mod.handleUpgrade(req, socket);
+  try {
+    inst.mod.handleUpgrade(req, socket);
+  } catch (e) {
+    console.log("[room] 房间 " + game + ":" + code + " 模块异常: " + e.message);
+    try { socket.destroy(); } catch (e2) { /* 忽略 */ }
+  }
 }
 
 /* —— 定时清理:空房间立即回收;超 1 小时强制解散(系统常驻房间除外) —— */

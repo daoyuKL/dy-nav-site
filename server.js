@@ -776,6 +776,14 @@ function handleApi(req, res, url) {
 /* 启动时加载持久化的登录会话 */
 loadSessions();
 
+/* 全局异常保护:单个房间/请求的 bug 不拖垮整个服务器(打日志继续运行) */
+process.on("uncaughtException", (err) => {
+  console.error("[server] 未捕获异常(已拦截,服务器继续运行):", err && err.stack ? err.stack : err);
+});
+process.on("unhandledRejection", (err) => {
+  console.error("[server] 未处理的 Promise 拒绝(已拦截):", err);
+});
+
 const server = http.createServer((req, res) => {
   let url = decodeURIComponent((req.url || "/").split("?")[0]);
 

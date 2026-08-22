@@ -9,6 +9,8 @@
   var POLL_MS = 2e3;
   var lastTime = 0;
   var allMsgs = [];
+  var loadTime = Date.now(); // 页面加载时刻:历史消息不触发彩蛋
+  var eggShown = false;      // 一次只弹一个彩蛋
   function esc(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
@@ -54,7 +56,8 @@
     if (!fresh.length) return;
     var stick = isNearBottom();
     fresh.forEach(function (m) {
-      return listEl.appendChild(buildItem(m));
+      listEl.appendChild(buildItem(m));
+      maybeEgg(m);
     });
     if (stick) scrollToBottom();
     lastTime = Math.max.apply(null, fresh.map(function (m) {
@@ -63,6 +66,41 @@
     if (loadingEl) loadingEl.style.display = "none";
     allMsgs = allMsgs.concat(fresh).slice(-300);
     if (window.ChatLocal) window.ChatLocal.save(allMsgs);
+  }
+
+  /* —— 彩蛋:有人发 mj/MJ,全屏随机弹出两个视频之一 —— */
+  function maybeEgg(m) {
+    if (!m || typeof m.text !== "string") return;
+    if (m.time && m.time <= loadTime) return; // 历史消息不触发
+    var t = m.text.trim().toLowerCase();
+    if (t !== "mj") return;
+    if (eggShown) return; // 一次只弹一个
+    eggShown = true;
+    var pick = Math.random() < 0.5 ? "assets/视频1.mp4" : "assets/视频2.mp4";
+    var overlay = document.createElement("div");
+    overlay.className = "egg-video-overlay";
+    overlay.innerHTML = '<div class="egg-video-box">' +
+      '<div class="egg-video-title">🎉 彩蛋!' + esc(m.name || "匿名") + " 触发了 MJ</div>" +
+      '<video class="egg-video" src="' + pick + '" autoplay playsinline controls preload="auto"></video>' +
+      '<button class="egg-video-close" type="button">✕ 关闭</button>' +
+      "</div>";
+    document.body.appendChild(overlay);
+
+    var close = function () {
+      var v = overlay.querySelector("video");
+      if (v) { try { v.pause(); } catch (e) { /* 忽略 */ } }
+      overlay.remove();
+      eggShown = false;
+    };
+    var closeBtn = overlay.querySelector(".egg-video-close");
+    if (closeBtn) closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", function (e) { if (e.target === overlay) close(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
+    var v = overlay.querySelector("video");
+    if (v) {
+      v.addEventListener("ended", function () { setTimeout(close, 800); });
+      v.addEventListener("error", function () { setTimeout(close, 1500); });
+    }
   }
   function poll() {
     fetch("/api/chat?after=" + (lastTime - 1e3)).then(function (r) {
